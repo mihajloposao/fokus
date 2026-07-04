@@ -6,7 +6,7 @@
  */
 
 :root {
-  --paper: #f6efe4;         /* pozadina cele aplikacije */
+  --paper: #f4efe4;         /* pozadina cele aplikacije */
   --paper-svetlo: #fdf9f1;  /* pozadina kartica i redova */
   --ink: #232f4b;           /* primarni tekst i tamni akcenti */
   --ink-blago: #8a8375;     /* sekundarni tekst (male caps naslovi, oznake) */
@@ -22,7 +22,9 @@
 }
 
 html {
-  -webkit-text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%; /* spreči da telefon sam uveća font */
+  touch-action: pan-y;            /* dozvoli samo vertikalni skrol — bez pinch-zooma */
+  overscroll-behavior: none;      /* bez "rubber-band" muljanja stranice na krajevima */
 }
 
 body {
@@ -30,6 +32,8 @@ body {
   background: var(--paper);
   color: var(--ink);
   min-height: 100vh;
+  touch-action: pan-y;
+  overscroll-behavior: none;
 }
 
 main {
@@ -174,17 +178,25 @@ input:focus {
 .kocka.pola { background: linear-gradient(to top, #44659e 50%, var(--pesak) 50%); }
 .kocka.prazan { border: 1px dashed var(--ink-blago); background: none; }
 
-/* ===================== DANAS: VELIKI TAJMER ===================== */
+/* ===================== DANAS: KOMPAKTNA KARTICA TAJMERA ===================== */
 
-#tajmer-panel {
-  text-align: center;
-  margin-top: 18px;
+/* Ring levo, tekst i dugmad desno — kompaktan blok umesto celog ekrana. */
+.tajmer-kartica {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+  padding: 16px;
+  background: var(--paper-svetlo);
+  border: 1px solid var(--linija);
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(35, 47, 75, 0.05);
 }
 
 .ring-omotac {
   position: relative;
-  width: 240px;
-  margin: 0 auto;
+  width: 96px;
+  flex-shrink: 0;
 }
 
 .ring {
@@ -194,7 +206,7 @@ input:focus {
 
 .ring circle {
   fill: none;
-  stroke-width: 12;
+  stroke-width: 14;
   stroke-linecap: round;
 }
 
@@ -214,46 +226,62 @@ input:focus {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 4px;
+  gap: 1px;
 }
 
 .tajmer-vreme {
-  font-size: 44px;
+  font-size: 19px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 1px;
+  letter-spacing: 0.3px;
 }
 
 .tajmer-cilj {
-  font-size: 13px;
+  font-size: 10px;
   color: var(--ink-blago);
 }
 
+.tajmer-info {
+  flex: 1;
+  min-width: 0; /* dozvoli skraćivanje dugog naziva sa "..." */
+}
+
+.tajmer-info .nadnaslov {
+  margin-bottom: 3px;
+}
+
 .tajmer-naziv {
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 600;
-  margin-top: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tajmer-detalj {
+  font-size: 12px;
+  color: var(--ink-blago);
+  margin-top: 1px;
 }
 
 .tajmer-dugmad {
   display: flex;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 14px;
+  gap: 12px;
+  margin-top: 12px;
 }
 
 .okruglo {
-  width: 54px;
-  height: 54px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  font-size: 17px;
+  font-size: 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
 .okruglo.svetlo {
-  background: var(--paper-svetlo);
+  background: var(--paper);
   border: 1px solid var(--linija);
   box-shadow: 0 2px 6px rgba(35, 47, 75, 0.08);
 }
@@ -264,7 +292,21 @@ input:focus {
   box-shadow: 0 4px 10px rgba(35, 47, 75, 0.3);
 }
 
-/* ===================== DANAS: HORIZONTALNA TRAKA ===================== */
+/* Kompaktna legenda u naslovu trake (samo "u toku" i "zauzeto") */
+.legenda-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0;
+  font-weight: 500;
+  text-transform: none;
+}
+
+.legenda-mini .kocka {
+  margin-left: 6px;
+}
+
+/* ===================== DANAS: HORIZONTALNA TRAKA (nekorišćeno, zadržano) ===================== */
 
 .traka-platno {
   position: relative;
@@ -786,6 +828,38 @@ input:focus {
 
 .vtraka-blok.zauzeto small {
   color: #8d7f61;
+}
+
+/* Aktivna sesija (Danas): pun okvir u boji stavke + blagi "glow" */
+.vtraka-blok.aktivna {
+  border: 2px solid;
+  box-shadow: 0 0 0 3px rgba(35, 47, 75, 0.08);
+}
+
+/* Kvačica pored naziva kad je stavka dostigla cilj */
+.vtraka-blok .cek {
+  font-size: 11px;
+}
+
+/* Crvena linija trenutnog vremena preko vertikalnog timeline-a (Danas) */
+.vtraka-sada {
+  position: absolute;
+  left: -34px;
+  right: 0;
+  border-top: 2px solid var(--crvena);
+  z-index: 2;
+}
+
+.vtraka-sada span {
+  position: absolute;
+  left: -2px;
+  top: -8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--crvena);
+  background: var(--paper);
+  padding-right: 4px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* "CILJ VS ODRAĐENO" — uporedne trake po stavci */

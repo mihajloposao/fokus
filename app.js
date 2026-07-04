@@ -295,12 +295,12 @@ function renderDanas() {
   document.getElementById("danas-ukupno").textContent = formatTrajanje(ukupnoMinutaDana(datum, sada));
 
   renderTajmerPanel(sada);
-  renderTraku(document.getElementById("danas-traka"), datum, sada);
+  renderVertikalnuTraku(document.getElementById("danas-traka"), datum, sada, true);
   renderListuStavkiDanas(datum, sada);
 }
 
-// Veliki kružni tajmer sa progress ringom. Prikazuje se samo dok je neka
-// stavka izabrana (tajmer radi ili je pauziran).
+// Kompaktna kartica tajmera (ring + info + dugmad). Prikazuje se samo dok je
+// neka stavka izabrana (tajmer radi ili je pauziran).
 function renderTajmerPanel(sada) {
   var panel = document.getElementById("tajmer-panel");
   var tajmer = ucitajAktivniTajmer();
@@ -330,11 +330,22 @@ function renderTajmerPanel(sada) {
   document.getElementById("ring-progres").style.strokeDashoffset = obim * (1 - progres);
   document.getElementById("ring-progres").style.stroke = stavka.boja;
 
+  // Redni broj tekuće sesije = broj već zabeleženih sesija te stavke danas
+  // (+1 ako trenutno teče, jer se tekuća sesija upisuje tek na pauzu/stop).
+  var dan = ucitajDan(tajmer.datum);
+  var brojPrethodnih = 0;
+  for (var i = 0; i < dan.sessions.length; i++) {
+    if (dan.sessions[i].itemId === stavka.id) brojPrethodnih++;
+  }
+  var sesijaBroj = radi ? brojPrethodnih + 1 : Math.max(brojPrethodnih, 1);
+
   document.getElementById("tajmer-status").textContent = radi ? "● U TOKU" : "❙❙ PAUZA";
   document.getElementById("tajmer-vreme").textContent = formatHMS(protekloSesije(tajmer, sada));
   document.getElementById("tajmer-cilj").textContent =
-    formatTrajanje(odradjeno) + " / " + formatTrajanje(stavka.ciljMinuta);
+    formatKratko(odradjeno) + " / " + formatKratko(stavka.ciljMinuta);
   document.getElementById("tajmer-naziv").textContent = stavka.naziv;
+  document.getElementById("tajmer-detalj").textContent =
+    "cilj " + formatKratko(stavka.ciljMinuta) + " · " + sesijaBroj + ". sesija";
 
   // Dugme pauza postaje play kad je tajmer pauziran.
   document.getElementById("dugme-pauza").textContent = radi ? "❙❙" : "▶";
@@ -395,10 +406,11 @@ function renderListuStavkiDanas(datum, sada) {
   }
 }
 
-/* ===================== RENDER: HORIZONTALNA TRAKA ===================== */
+/* ===================== TRAKA: RASPON VREMENA ===================== */
 
 // Računa vremenski raspon trake za dati dan: podrazumevano 08–16h,
 // prošireno da obuhvati sve fiksne događaje, sesije i trenutno vreme.
+// Koristi ga vertikalni timeline (renderVertikalnuTraku).
 function rasponTrake(datum, sada) {
   var dan = ucitajDan(datum);
   var min = 8 * 60;
@@ -424,92 +436,6 @@ function rasponTrake(datum, sada) {
 
   // Zaokruži na cele sate.
   return { od: Math.floor(min / 60) * 60, do: Math.ceil(max / 60) * 60 };
-}
-
-// Crta horizontalnu traku dana: fiksni događaji (šrafirano), odrađeni blokovi
-// po sesijama (boja stavke), blok u toku i crvena linija "sada".
-function renderTraku(kontejner, datum, sada) {
-  var dan = ucitajDan(datum);
-  var raspon = rasponTrake(datum, sada);
-  var trajanje = raspon.do - raspon.od;
-
-  // Pozicija minuta-u-danu kao procenat širine trake.
-  function pozicija(minuti) {
-    return ((minuti - raspon.od) / trajanje) * 100;
-  }
-
-  var html = '<div class="traka-platno">';
-
-  // Sloj 1: fiksni događaji (cela visina, šrafirano).
-  for (var i = 0; i < dan.fixedEvents.length; i++) {
-    var ev = dan.fixedEvents[i];
-    var od = pozicija(vremeUMinute(ev.od));
-    var sirina = pozicija(vremeUMinute(ev.do)) - od;
-    html +=
-      '<div class="traka-blok zauzeto" style="left:' + od + "%;width:" + sirina + '%">' +
-        "<span>" + escapeHtml(ev.naziv) + "</span>" +
-      "</div>";
-  }
-
-  // Sloj 2: odrađene sesije, svaka kao poseban blok u boji svoje stavke.
-  for (var j = 0; j < dan.sessions.length; j++) {
-    var s = dan.sessions[j];
-    var stavka2 = nadjiStavku(datum, s.itemId);
-    if (stavka2 === null) continue;
-    var lev = pozicija(timestampUMinute(s.start));
-    var sir = Math.max(pozicija(timestampUMinute(s.end)) - lev, 0.8);
-    html +=
-      '<div class="traka-blok sesija" style="left:' + lev + "%;width:" + sir + "%;background:" + stavka2.boja + '">' +
-        "<span>" + escapeHtml(stavka2.naziv) + "</span>" +
-      "</div>";
-  }
-
-  // Sloj 3: sesija u toku (od starta do "sada", uokvirena).
-  var tajmer = ucitajAktivniTajmer();
-  if (tajmer !== null && tajmer.datum === datum && tajmer.start !== null) {
-    var stavka3 = nadjiStavku(datum, tajmer.itemId);
-    if (stavka3 !== null) {
-      var l = pozicija(timestampUMinute(tajmer.start));
-      var w = Math.max(pozicija(timestampUMinute(sada)) - l, 0.8);
-      html +=
-        '<div class="traka-blok u-toku" style="left:' + l + "%;width:" + w + "%;border-color:" + stavka3.boja + '">' +
-          '<span class="tacka" style="background:' + stavka3.boja + '"></span>' +
-        "</div>";
-    }
-  }
-
-  // Crvena linija trenutnog vremena (samo za danas i samo unutar raspona).
-  if (datum === danasKey()) {
-    var sadaMin = timestampUMinute(sada);
-    if (sadaMin >= raspon.od && sadaMin <= raspon.do) {
-      html +=
-        '<div class="traka-sada" style="left:' + pozicija(sadaMin) + '%">' +
-          "<label>" + formatSatMinut(sada) + "</label>" +
-        "</div>";
-    }
-  }
-
-  html += "</div>";
-
-  // Oznake sati ispod trake (na svaka 2 sata, ili ređe ako je raspon veliki).
-  var korakSati = trajanje > 10 * 60 ? 3 : 2;
-  html += '<div class="traka-sati">';
-  for (var sat = raspon.od; sat <= raspon.do; sat += korakSati * 60) {
-    html +=
-      '<span style="left:' + pozicija(sat) + '%">' +
-        String(sat / 60).padStart(2, "0") +
-      "</span>";
-  }
-  html += "</div>";
-
-  kontejner.innerHTML = html;
-
-  // Natpis raspona u zaglavlju sekcije (npr. "08–16h") postoji samo na Danas ekranu.
-  var natpis = document.getElementById("traka-raspon");
-  if (natpis !== null) {
-    natpis.textContent =
-      String(raspon.od / 60).padStart(2, "0") + "–" + String(raspon.do / 60).padStart(2, "0") + "h";
-  }
 }
 
 /* ===================== RENDER: PLAN ===================== */
@@ -731,17 +657,18 @@ function renderDetalj() {
   document.getElementById("detalj-ukupno").textContent = formatTrajanje(ukupnoMinutaDana(datum, sada));
   document.getElementById("detalj-plan").textContent = "od " + formatTrajanje(ukupnoCiljaDana(datum)) + " plana";
 
-  renderVertikalnuTraku(datum, sada);
+  renderVertikalnuTraku(document.getElementById("detalj-traka"), datum, sada, false);
   renderCiljVsOdradjeno(datum, sada);
 }
 
-// Vertikalni timeline dana: oznake sati levo, blokovi pozicionirani
-// tačno po vremenu kad su rađeni. Read-only istorijski prikaz.
-function renderVertikalnuTraku(datum, sada) {
-  var kontejner = document.getElementById("detalj-traka");
+// Vertikalni timeline dana: oznake sati levo, blokovi pozicionirani tačno po
+// vremenu kad su rađeni. Koristi se na dva mesta:
+//   - Danas ekran (zivo = true): dodaje blok sesije u toku i crvenu "sada" liniju.
+//   - Detalj dana (zivo = false): read-only istorijski prikaz.
+function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
   var dan = ucitajDan(datum);
   var raspon = rasponTrake(datum, sada);
-  var PIKSELA_PO_SATU = 56;
+  var PIKSELA_PO_SATU = 48;
   var visina = ((raspon.do - raspon.od) / 60) * PIKSELA_PO_SATU;
 
   // Pozicija minuta-u-danu kao piksel od vrha.
@@ -785,13 +712,44 @@ function renderVertikalnuTraku(datum, sada) {
     var kraj = timestampUMinute(s.end);
     var trajanjeMin = Math.round((s.end - s.start) / 60000);
     var visinaS = Math.max(vrh(kraj) - vrh(start), 24);
+    // Kvačica ako je stavka (ukupno danas) dostigla svoj cilj.
+    var zavrsena = minutiStavke(datum, stavka.id, sada) >= stavka.ciljMinuta;
     html +=
       '<div class="vtraka-blok sesija' + (visinaS < KOMPAKT_PRAG ? " kompakt" : "") +
         '" style="top:' + vrh(start) + "px;height:" + visinaS +
         "px;border-left-color:" + stavka.boja + ";background:" + stavka.boja + '15">' +
-        "<strong>" + escapeHtml(stavka.naziv) + "</strong>" +
+        "<strong>" + escapeHtml(stavka.naziv) +
+          (zavrsena ? ' <span class="cek" style="color:' + stavka.boja + '">✓</span>' : "") +
+        "</strong>" +
         "<small>" + formatSatMinut(s.start) + "–" + formatSatMinut(s.end) + " · " + formatTrajanje(trajanjeMin) + "</small>" +
       "</div>";
+  }
+
+  // Živi režim (Danas): blok sesije u toku + crvena linija trenutnog vremena.
+  if (zivo) {
+    var tajmer = ucitajAktivniTajmer();
+    if (tajmer !== null && tajmer.datum === datum && tajmer.start !== null) {
+      var stavkaA = nadjiStavku(datum, tajmer.itemId);
+      if (stavkaA !== null) {
+        var a0 = timestampUMinute(tajmer.start);
+        var a1 = timestampUMinute(sada);
+        var visinaA = Math.max(vrh(a1) - vrh(a0), 24);
+        html +=
+          '<div class="vtraka-blok sesija aktivna' + (visinaA < KOMPAKT_PRAG ? " kompakt" : "") +
+            '" style="top:' + vrh(a0) + "px;height:" + visinaA +
+            "px;border-color:" + stavkaA.boja + ";background:" + stavkaA.boja + '22">' +
+            "<strong>" + escapeHtml(stavkaA.naziv) + "</strong>" +
+            "<small>" + formatSatMinut(tajmer.start) + "–" + formatSatMinut(sada) + "</small>" +
+          "</div>";
+      }
+    }
+    var sadaMin = timestampUMinute(sada);
+    if (sadaMin >= raspon.od && sadaMin <= raspon.do) {
+      html +=
+        '<div class="vtraka-sada" style="top:' + vrh(sadaMin) + 'px">' +
+          "<span>" + formatSatMinut(sada) + "</span>" +
+        "</div>";
+    }
   }
 
   html += "</div>";

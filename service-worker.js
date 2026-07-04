@@ -9,7 +9,7 @@
  * KES_NAZIV (npr. "fokus-v2") da bi korisnici dobili novu verziju.
  */
 
-var KES_NAZIV = "fokus-v1";
+var KES_NAZIV = "fokus-v2";
 
 var FAJLOVI = [
   "./",
