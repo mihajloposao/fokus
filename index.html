@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6efe4">
+  <title>Fokus</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<main>
+
+  <!-- ======================= EKRAN: DANAS ======================= -->
+  <section id="sekcija-danas">
+    <header class="ekran-zaglavlje">
+      <div>
+        <p class="nadnaslov" id="danas-datum"></p>
+        <h1>Fokus</h1>
+      </div>
+      <div class="zbir">
+        <strong id="danas-ukupno">0m</strong>
+        <small>danas</small>
+      </div>
+    </header>
+
+    <!-- Veliki kružni tajmer — vidljiv samo dok je neka stavka aktivna/pauzirana -->
+    <div id="tajmer-panel" hidden>
+      <div class="ring-omotac">
+        <svg viewBox="0 0 200 200" class="ring">
+          <circle class="ring-pozadina" cx="100" cy="100" r="90"></circle>
+          <circle id="ring-progres" cx="100" cy="100" r="90"></circle>
+        </svg>
+        <div class="ring-sadrzaj">
+          <p class="nadnaslov" id="tajmer-status">● U TOKU</p>
+          <p class="tajmer-vreme" id="tajmer-vreme">0:00:00</p>
+          <p class="tajmer-cilj" id="tajmer-cilj"></p>
+        </div>
+      </div>
+      <p class="tajmer-naziv" id="tajmer-naziv"></p>
+      <div class="tajmer-dugmad">
+        <button id="dugme-pauza" class="okruglo svetlo" title="Pauziraj">❙❙</button>
+        <button id="dugme-stop" class="okruglo tamno" title="Zaustavi">■</button>
+      </div>
+    </div>
+
+    <p class="naslov-sekcije">DANAŠNJA TRAKA <span class="desno" id="traka-raspon"></span></p>
+    <div id="danas-traka" class="traka"></div>
+    <div class="legenda">
+      <span><i class="kocka" style="background:#44659e"></i> odrađeno</span>
+      <span><i class="kocka okvir"></i> u toku</span>
+      <span><i class="kocka srafura"></i> zauzeto</span>
+    </div>
+
+    <p class="naslov-sekcije">PLAN <span class="desno" id="danas-brojac"></span></p>
+    <div id="danas-stavke" class="lista"></div>
+  </section>
+
+  <!-- ======================= EKRAN: PLAN ======================= -->
+  <section id="sekcija-plan" hidden>
+    <header class="ekran-zaglavlje">
+      <div>
+        <p class="nadnaslov">PLANIRAJ DAN</p>
+        <h1 id="plan-datum"></h1>
+      </div>
+      <div class="plan-tabovi">
+        <button id="plan-tab-danas" class="tab-dugme">Danas</button>
+        <button id="plan-tab-sutra" class="tab-dugme">Sutra</button>
+      </div>
+    </header>
+
+    <p class="naslov-sekcije">FIKSNI DOGAĐAJI</p>
+    <div id="plan-dogadjaji" class="lista"></div>
+
+    <button id="dugme-novi-dogadjaj" class="isprekidano">+ fiksni događaj + tačno vreme</button>
+
+    <div id="forma-dogadjaj" class="kartica-forma" hidden>
+      <input id="dogadjaj-naziv" type="text" placeholder="Naziv događaja" maxlength="40">
+      <div class="red-polja">
+        <label>od <input id="dogadjaj-od" type="time"></label>
+        <label>do <input id="dogadjaj-do" type="time"></label>
+      </div>
+      <div class="red-polja">
+        <button id="dogadjaj-dodaj" class="malo-dugme tamno">Dodaj</button>
+        <button id="dogadjaj-otkazi" class="malo-dugme">Otkaži</button>
+      </div>
+    </div>
+
+    <p class="naslov-sekcije">STAVKE + CILJ <span class="desno">(bez fiksnog vremena)</span></p>
+    <div id="plan-stavke" class="lista"></div>
+
+    <div class="kartica-forma">
+      <div id="biranje-boje" class="biranje-boje"></div>
+      <input id="stavka-naziv" type="text" placeholder="Nova stavka..." maxlength="40">
+      <div class="red-polja">
+        <label>cilj
+          <input id="stavka-sati" type="number" min="0" max="23" placeholder="h" inputmode="numeric">
+          <input id="stavka-minuti" type="number" min="0" max="59" placeholder="min" inputmode="numeric">
+        </label>
+        <button id="stavka-dodaj" class="malo-dugme tamno">Dodaj</button>
+      </div>
+    </div>
+
+    <div class="ukupno-red">
+      <span>Ukupno planirano</span>
+      <strong id="plan-ukupno">0m</strong>
+    </div>
+
+    <button id="dugme-sacuvaj-plan" class="glavno-dugme">Sačuvaj plan</button>
+  </section>
+
+  <!-- ======================= EKRAN: ISTORIJA ======================= -->
+  <section id="sekcija-istorija" hidden>
+    <header class="ekran-zaglavlje">
+      <div>
+        <p class="nadnaslov">PREGLED</p>
+        <h1 id="istorija-mesec"></h1>
+      </div>
+      <div class="plan-tabovi">
+        <button id="mesec-nazad" class="tab-dugme" title="Prethodni mesec">‹</button>
+        <button id="mesec-napred" class="tab-dugme" title="Sledeći mesec">›</button>
+      </div>
+    </header>
+
+    <div class="kartice-red">
+      <div class="kartica tamna">
+        <strong id="istorija-streak">0</strong>
+        <small>dana zaredom u planu</small>
+      </div>
+      <div class="kartica">
+        <strong id="istorija-prosek">—</strong>
+        <small>prosek ispunjenja cilja</small>
+      </div>
+    </div>
+
+    <div id="istorija-kalendar" class="kalendar"></div>
+    <div class="legenda">
+      <span><i class="kocka" style="background:#44659e"></i> cilj ispunjen</span>
+      <span><i class="kocka pola"></i> delimično</span>
+      <span><i class="kocka prazan"></i> bez plana</span>
+    </div>
+
+    <p class="naslov-sekcije">POSLEDNJI DANI</p>
+    <div id="istorija-dani" class="lista"></div>
+  </section>
+
+  <!-- ======================= EKRAN: DETALJ DANA ======================= -->
+  <section id="sekcija-detalj" hidden>
+    <header class="ekran-zaglavlje">
+      <div>
+        <button id="detalj-nazad" class="nazad-dugme">‹ Istorija</button>
+        <p class="nadnaslov" id="detalj-dan"></p>
+        <h1 id="detalj-datum"></h1>
+      </div>
+      <div class="zbir">
+        <strong id="detalj-ukupno">0m</strong>
+        <small id="detalj-plan"></small>
+      </div>
+    </header>
+
+    <div id="detalj-traka"></div>
+
+    <p class="naslov-sekcije">CILJ VS ODRAĐENO</p>
+    <div id="detalj-poredjenje" class="lista"></div>
+  </section>
+
+</main>
+
+<!-- ======================= DONJA NAVIGACIJA ======================= -->
+<nav class="donja-nav">
+  <button class="nav-dugme" data-sekcija="danas">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    Danas
+  </button>
+  <button class="nav-dugme" data-sekcija="plan">
+    <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    Plan
+  </button>
+  <button class="nav-dugme" data-sekcija="istorija">
+    <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 10h16M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    Istorija
+  </button>
+</nav>
+
+<script src="storage.js"></script>
+<script src="timer.js"></script>
+<script src="app.js"></script>
+<script>
+  // Registracija service worker-a za PWA (offline rad + instalacija na telefon).
+  // catch: ako se stranica otvori direktno sa diska (file://), SW nije podržan
+  // i to je u redu — aplikacija radi i bez njega.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("service-worker.js").catch(function () {});
+  }
+</script>
+</body>
+</html>

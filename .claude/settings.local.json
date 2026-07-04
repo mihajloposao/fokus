@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import pypdfium2; print\\('pypdfium2 ok'\\)\")",
+      "Bash(python -c \"import pdfplumber; print\\('pdfplumber ok'\\)\")",
+      "Bash(python -m pip install --quiet pypdfium2)",
+      "Bash(python -c \"import pypdfium2; print\\('ok'\\)\")",
+      "Bash(python -m pip install pypdfium2)",
+      "Bash(python -m pip install pypdf)",
+      "Bash(python -m pip install pymupdf)",
+      "Bash(python -)",
+      "Bash(python -c \"import pypdf; print\\('pypdf', pypdf.__version__\\)\")",
+      "Bash(python -m pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org pymupdf)",
+      "Bash(python -c \"import fitz; print\\('fitz ok'\\)\")",
+      "Bash(python -c \"import PyPDF2; print\\('PyPDF2 ok'\\)\")"
+    ]
+  }
+}

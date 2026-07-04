@@ -1,0 +1,878 @@
+/*
+ * style.css — svi stilovi aplikacije, "Ink + Paper" vizuelni identitet.
+ *
+ * Paleta: paper (off-white) pozadina, tamna "ink" plava za tekst i akcente.
+ * Mobile-first: osnovni stilovi su za telefon, @media na dnu za desktop.
+ */
+
+:root {
+  --paper: #f6efe4;         /* pozadina cele aplikacije */
+  --paper-svetlo: #fdf9f1;  /* pozadina kartica i redova */
+  --ink: #232f4b;           /* primarni tekst i tamni akcenti */
+  --ink-blago: #8a8375;     /* sekundarni tekst (male caps naslovi, oznake) */
+  --linija: #e5dac6;        /* ivice i separatori */
+  --pesak: #eee3cd;         /* pozadina trake i "zauzetih" blokova */
+  --crvena: #c0503e;        /* linija trenutnog vremena na traci */
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+main {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 20px 18px 96px; /* dno ostavlja mesto za donju navigaciju */
+}
+
+h1 {
+  font-size: 28px;
+  letter-spacing: -0.3px;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+input {
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--paper-svetlo);
+  border: 1px solid var(--linija);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+input:focus {
+  outline: 2px solid var(--ink);
+  outline-offset: -1px;
+}
+
+/* ===================== ZAJEDNIČKI ELEMENTI ===================== */
+
+/* Male caps naslov sekcije, npr. "DANAŠNJA TRAKA" */
+.naslov-sekcije {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--ink-blago);
+  margin: 26px 0 10px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.naslov-sekcije .desno {
+  letter-spacing: 1px;
+  font-weight: 500;
+}
+
+/* Sitan naslov iznad velikog teksta, npr. "SUBOTA · 4. JUL" */
+.nadnaslov {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--ink-blago);
+  margin-bottom: 2px;
+}
+
+.ekran-zaglavlje {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.ekran-zaglavlje .zbir {
+  text-align: right;
+}
+
+.ekran-zaglavlje .zbir strong {
+  font-size: 22px;
+  display: block;
+}
+
+.ekran-zaglavlje .zbir small {
+  color: var(--ink-blago);
+  font-size: 12px;
+}
+
+.lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prazno {
+  color: var(--ink-blago);
+  font-size: 14px;
+  padding: 12px 4px;
+}
+
+/* Tačka u boji stavke */
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.dot.kvacica {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Legenda ispod trake / kalendara */
+.legenda {
+  display: flex;
+  gap: 14px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--ink-blago);
+}
+
+.legenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.kocka {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.kocka.okvir { border: 2px solid var(--ink); background: var(--paper-svetlo); }
+.kocka.srafura {
+  background: repeating-linear-gradient(45deg, var(--pesak), var(--pesak) 2px, #dccfb2 2px, #dccfb2 4px);
+}
+.kocka.pola { background: linear-gradient(to top, #44659e 50%, var(--pesak) 50%); }
+.kocka.prazan { border: 1px dashed var(--ink-blago); background: none; }
+
+/* ===================== DANAS: VELIKI TAJMER ===================== */
+
+#tajmer-panel {
+  text-align: center;
+  margin-top: 18px;
+}
+
+.ring-omotac {
+  position: relative;
+  width: 240px;
+  margin: 0 auto;
+}
+
+.ring {
+  width: 100%;
+  transform: rotate(-90deg); /* progres kreće od vrha kruga */
+}
+
+.ring circle {
+  fill: none;
+  stroke-width: 12;
+  stroke-linecap: round;
+}
+
+.ring-pozadina {
+  stroke: var(--pesak);
+}
+
+/* Bez CSS tranzicije: ring se osvežava svake sekunde pa bi animacija treperila */
+#ring-progres {
+  stroke: var(--ink);
+}
+
+.ring-sadrzaj {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+}
+
+.tajmer-vreme {
+  font-size: 44px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+}
+
+.tajmer-cilj {
+  font-size: 13px;
+  color: var(--ink-blago);
+}
+
+.tajmer-naziv {
+  font-size: 19px;
+  font-weight: 600;
+  margin-top: 12px;
+}
+
+.tajmer-dugmad {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.okruglo {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  font-size: 17px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.okruglo.svetlo {
+  background: var(--paper-svetlo);
+  border: 1px solid var(--linija);
+  box-shadow: 0 2px 6px rgba(35, 47, 75, 0.08);
+}
+
+.okruglo.tamno {
+  background: var(--ink);
+  color: var(--paper-svetlo);
+  box-shadow: 0 4px 10px rgba(35, 47, 75, 0.3);
+}
+
+/* ===================== DANAS: HORIZONTALNA TRAKA ===================== */
+
+.traka-platno {
+  position: relative;
+  height: 56px;
+  background: var(--pesak);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.traka-blok {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.traka-blok span {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.traka-blok.zauzeto {
+  top: 0;
+  bottom: 0;
+  border-radius: 0;
+  background: repeating-linear-gradient(45deg, #e7d9bc, #e7d9bc 3px, #ddcdab 3px, #ddcdab 6px);
+  color: #7d6f52;
+}
+
+.traka-blok.sesija {
+  color: #fff;
+}
+
+.traka-blok.u-toku {
+  background: var(--paper-svetlo);
+  border: 2px solid var(--ink);
+}
+
+.traka-blok.u-toku .tacka {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Crvena vertikalna linija "sada" sa satnicom iznad */
+.traka-sada {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--crvena);
+}
+
+.traka-sada label {
+  position: absolute;
+  top: 1px;
+  left: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--crvena);
+  white-space: nowrap;
+}
+
+.traka-sati {
+  position: relative;
+  height: 16px;
+  margin-top: 4px;
+}
+
+.traka-sati span {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--ink-blago);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===================== REDOVI STAVKI (Danas + Plan) ===================== */
+
+.stavka-red {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--paper-svetlo);
+  border: 1px solid var(--linija);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.stavka-red.zavrsena {
+  background: #f8f2e2;
+}
+
+.stavka-red.zavrsena .stavka-naziv {
+  opacity: 0.75;
+}
+
+.stavka-naziv {
+  flex: 1;
+  font-weight: 600;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stavka-vreme {
+  font-size: 13px;
+  color: var(--ink-blago);
+  font-variant-numeric: tabular-nums;
+}
+
+.play-dugme {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--linija);
+  background: var(--paper);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.obrisi-dugme {
+  color: var(--ink-blago);
+  font-size: 18px;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+/* Pill sa ciljem, npr. "4h" — boja se postavlja iz JS-a po stavci */
+.cilj-oznaka {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 7px;
+}
+
+/* ===================== PLAN ===================== */
+
+.plan-tabovi {
+  display: flex;
+  gap: 6px;
+}
+
+.tab-dugme {
+  padding: 7px 14px;
+  border-radius: 9px;
+  border: 1px solid var(--linija);
+  background: var(--paper-svetlo);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.tab-dugme.aktivan {
+  background: var(--ink);
+  color: var(--paper-svetlo);
+  border-color: var(--ink);
+}
+
+.dogadjaj-red {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: repeating-linear-gradient(45deg, #efe3c8, #efe3c8 4px, #e8dabb 4px, #e8dabb 8px);
+  border: 1px solid var(--linija);
+}
+
+.dogadjaj-naziv {
+  flex: 1;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.dogadjaj-vreme {
+  font-size: 13px;
+  color: var(--ink-blago);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Isprekidano dugme "+ fiksni događaj + tačno vreme" */
+.isprekidano {
+  width: 100%;
+  margin-top: 8px;
+  padding: 13px;
+  border: 1.5px dashed var(--ink-blago);
+  border-radius: 12px;
+  color: var(--ink-blago);
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+
+.kartica-forma {
+  margin-top: 8px;
+  padding: 14px;
+  background: var(--paper-svetlo);
+  border: 1px solid var(--linija);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kartica-forma input[type="text"] {
+  width: 100%;
+}
+
+.red-polja {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.red-polja label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-blago);
+}
+
+.red-polja input[type="time"] {
+  width: 104px;
+}
+
+.red-polja input[type="number"] {
+  width: 64px;
+}
+
+.malo-dugme {
+  padding: 9px 18px;
+  border-radius: 9px;
+  border: 1px solid var(--linija);
+  background: var(--paper);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.malo-dugme.tamno {
+  background: var(--ink);
+  color: var(--paper-svetlo);
+  border-color: var(--ink);
+}
+
+.biranje-boje {
+  display: flex;
+  gap: 8px;
+}
+
+.boja-dugme {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+}
+
+.boja-dugme.izabrana {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.ukupno-red {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 4px;
+  color: var(--ink-blago);
+  font-size: 14px;
+}
+
+.ukupno-red strong {
+  color: var(--ink);
+  font-size: 20px;
+}
+
+.glavno-dugme {
+  width: 100%;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--ink);
+  color: var(--paper-svetlo);
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(35, 47, 75, 0.25);
+}
+
+/* ===================== ISTORIJA ===================== */
+
+.kartice-red {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.kartica {
+  background: var(--paper-svetlo);
+  border: 1px solid var(--linija);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.kartica strong {
+  font-size: 34px;
+  display: block;
+}
+
+.kartica small {
+  color: var(--ink-blago);
+  font-size: 12px;
+}
+
+.kartica.tamna {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper-svetlo);
+}
+
+.kartica.tamna small {
+  color: #a8b0c6;
+}
+
+.kalendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.kal-zaglavlje {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-blago);
+}
+
+.kal-dan {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.kal-dan.ispunjen {
+  background: #44659e;
+  color: #fff;
+}
+
+.kal-dan.delimican {
+  background: linear-gradient(to top, #44659e 45%, var(--pesak) 45%);
+  color: var(--ink);
+}
+
+.kal-dan.bez-plana {
+  border: 1px dashed var(--linija);
+  color: var(--ink-blago);
+}
+
+.kal-dan.danas {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+/* Red u listi "POSLEDNJI DANI" */
+.dan-red {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  background: var(--paper-svetlo);
+  border: 1px solid var(--linija);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.dan-broj {
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+  flex-shrink: 0;
+}
+
+.dan-broj small {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--ink-blago);
+}
+
+.dan-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dan-info strong {
+  font-size: 14px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.mini-trake {
+  display: flex;
+  gap: 4px;
+}
+
+.mini-traka {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  overflow: hidden;
+  display: block;
+}
+
+.mini-traka span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.dan-vreme {
+  font-size: 13px;
+  color: var(--ink-blago);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* ===================== DETALJ DANA ===================== */
+
+.nazad-dugme {
+  color: var(--ink-blago);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+#detalj-traka {
+  margin-top: 20px;
+}
+
+.vtraka {
+  position: relative;
+  margin-left: 34px; /* mesto za oznake sati sa leve strane */
+}
+
+.vtraka-sat {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--linija);
+}
+
+.vtraka-sat span {
+  position: absolute;
+  left: -34px;
+  top: -8px;
+  font-size: 11px;
+  color: var(--ink-blago);
+  font-variant-numeric: tabular-nums;
+}
+
+.vtraka-blok {
+  position: absolute;
+  left: 10px;
+  right: 0;
+  border-radius: 10px;
+  padding: 6px 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.vtraka-blok strong {
+  font-size: 13px;
+}
+
+.vtraka-blok small {
+  font-size: 11px;
+  color: var(--ink-blago);
+  font-variant-numeric: tabular-nums;
+}
+
+.vtraka-blok.sesija {
+  border-left: 3px solid;
+}
+
+/* Nizak blok (kratka sesija): naziv i vreme u jednom redu */
+.vtraka-blok.kompakt {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vtraka-blok.kompakt strong,
+.vtraka-blok.kompakt small {
+  white-space: nowrap;
+}
+
+.vtraka-blok.zauzeto {
+  background: repeating-linear-gradient(45deg, #ebdfc2, #ebdfc2 4px, #e3d3b1 4px, #e3d3b1 8px);
+  border: 1px solid #d9c9a5;
+  color: #6f6248;
+}
+
+.vtraka-blok.zauzeto small {
+  color: #8d7f61;
+}
+
+/* "CILJ VS ODRAĐENO" — uporedne trake po stavci */
+.poredjenje-red {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.poredjenje-naziv {
+  width: 96px;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.poredjenje-traka {
+  flex: 1;
+  height: 8px;
+  background: var(--pesak);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.poredjenje-traka span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+}
+
+.poredjenje-brojevi {
+  font-size: 12px;
+  color: var(--ink-blago);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* ===================== DONJA NAVIGACIJA ===================== */
+
+.donja-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-around;
+  background: var(--paper-svetlo);
+  border-top: 1px solid var(--linija);
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom)); /* iPhone "notch" dno */
+}
+
+.nav-dugme {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--ink-blago);
+  padding: 4px 20px;
+}
+
+.nav-dugme svg {
+  width: 22px;
+  height: 22px;
+}
+
+.nav-dugme.aktivan {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* ===================== DESKTOP ===================== */
+
+@media (min-width: 700px) {
+  main {
+    padding-top: 36px;
+  }
+
+  /* Na desktopu navigacija ostaje dole ali sužena, poravnata sa sadržajem */
+  .donja-nav {
+    max-width: 520px;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 1px solid var(--linija);
+    border-radius: 16px 16px 0 0;
+  }
+}
