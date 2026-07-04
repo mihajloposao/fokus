@@ -677,83 +677,116 @@ function renderDetalj() {
   renderCiljVsOdradjeno(datum, sada);
 }
 
-// Vertikalni timeline dana: oznake sati levo, blokovi pozicionirani tačno po
-// vremenu kad su rađeni. Koristi se na dva mesta:
-//   - Danas ekran (zivo = true): dodaje blok sesije u toku i crvenu "sada" liniju.
-//   - Detalj dana (zivo = false): read-only istorijski prikaz.
+// Vertikalni timeline dana po sistemu "šina + agenda":
+//   - Fiksni događaji su pune trake preko širine ("zauzeto").
+//   - Svaka sesija ima tanku vremenski-tačnu ŠINU u boji levo (nikad se ne gubi)
+//     i ČITLJIVU NALEPNICU desno. Nalepnice se, ako bi se poklopile, guraju
+//     naniže (redosled ostaje) pa se nazivi nikad ne seku — čak i za kratke sesije.
+//   - Klik na bilo šta otvara modal sa detaljima (naziv, tačno vreme, trajanje, cilj).
+// Koristi se na Danas ekranu (zivo = true: tekuća sesija + "sada" linija) i na
+// Detalju dana (zivo = false: read-only).
 function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
   var dan = ucitajDan(datum);
   var raspon = rasponTrake(datum, sada);
-  var PIKSELA_PO_SATU = 60; // veći razmak da kratke sesije imaju mesta
-  var MIN_VISINA = 30;      // najmanja visina bloka da naslov stane
-  var KOMPAKT_PRAG = 54;    // niži blokovi prikazuju naziv i vreme u jednom redu
-  var visina = ((raspon.do - raspon.od) / 60) * PIKSELA_PO_SATU;
+  var PIKSELA_PO_SATU = 60;
+  var VISINA_NALEPNICE = 44; // mora da odgovara .agenda-red height u CSS-u
+  var RAZMAK = 6;            // minimalni razmak između nalepnica
+  var visinaTrake = ((raspon.do - raspon.od) / 60) * PIKSELA_PO_SATU;
 
   // Pozicija minuta-u-danu kao piksel od vrha.
   function vrh(minuti) {
     return ((minuti - raspon.od) / 60) * PIKSELA_PO_SATU;
   }
 
-  // 1) Sakupi sve blokove (fiksni događaji + sesije + tekuća sesija) u jednu
-  //    listu. Svaki blok pamti svoj piksel-opseg da bismo mogli da ih rasporedimo.
-  var blokovi = [];
+  // Sastavlja data-atribute koje čita modal na klik (naziv se enkodira zbog navodnika).
+  function dataAtributi(naziv, boja, od, doVreme, trajanjeMin, cilj, odradjeno, uToku) {
+    var a = ' data-naziv="' + encodeURIComponent(naziv) + '"' +
+      ' data-boja="' + (boja || "") + '"' +
+      ' data-od="' + od + '" data-do="' + doVreme + '"' +
+      ' data-traj="' + trajanjeMin + '"';
+    if (cilj != null) a += ' data-cilj="' + cilj + '" data-odr="' + Math.round(odradjeno) + '"';
+    if (uToku) a += ' data-utoku="1"';
+    return a;
+  }
 
+  var bandHtml = "";   // fiksni događaji (pozadinske trake)
+  var railHtml = "";   // šine u boji
+  var agendaHtml = ""; // nalepnice
+
+  // Fiksni događaji: pune trake preko širine.
   for (var i = 0; i < dan.fixedEvents.length; i++) {
     var ev = dan.fixedEvents[i];
     var evTop = vrh(vremeUMinute(ev.od));
-    blokovi.push({
-      top: evTop,
-      visina: Math.max(vrh(vremeUMinute(ev.do)) - evTop, MIN_VISINA),
-      klasa: "zauzeto",
-      boja: null,
-      naslov: escapeHtml(ev.naziv),
-      podnaslov: ev.od + "–" + ev.do + " · zauzeto"
-    });
+    var evVisina = Math.max(vrh(vremeUMinute(ev.do)) - evTop, 26);
+    var evTraj = vremeUMinute(ev.do) - vremeUMinute(ev.od);
+    bandHtml +=
+      '<div class="vtraka-band" style="top:' + evTop + "px;height:" + evVisina + 'px"' +
+        dataAtributi(ev.naziv, null, ev.od, ev.do, evTraj, null, null, false) + ">" +
+        "<strong>" + escapeHtml(ev.naziv) + "</strong>" +
+        "<small>" + ev.od + "–" + ev.do + " · zauzeto</small>" +
+      "</div>";
   }
 
+  // Sakupi sesije (+ tekuću) u jednu listu i sortiraj po vremenu početka.
+  var stavke = [];
   for (var j = 0; j < dan.sessions.length; j++) {
     var s = dan.sessions[j];
-    var stavka = nadjiStavku(datum, s.itemId);
-    if (stavka === null) continue;
-    var sTop = vrh(timestampUMinute(s.start));
-    var trajanjeMin = Math.round((s.end - s.start) / 60000);
-    // Kvačica ako je stavka (ukupno danas) dostigla svoj cilj.
-    var zavrsena = minutiStavke(datum, stavka.id, sada) >= stavka.ciljMinuta;
-    blokovi.push({
-      top: sTop,
-      visina: Math.max(vrh(timestampUMinute(s.end)) - sTop, MIN_VISINA),
-      klasa: "sesija",
-      boja: stavka.boja,
-      naslov: escapeHtml(stavka.naziv) +
-        (zavrsena ? ' <span class="cek" style="color:' + stavka.boja + '">✓</span>' : ""),
-      podnaslov: formatSatMinut(s.start) + "–" + formatSatMinut(s.end) + " · " + formatTrajanje(trajanjeMin)
-    });
+    var st = nadjiStavku(datum, s.itemId);
+    if (st === null) continue;
+    stavke.push({ itemId: st.id, boja: st.boja, naziv: st.naziv, cilj: st.ciljMinuta,
+      start: s.start, end: s.end, uToku: false });
   }
-
-  // Tekuća sesija (samo Danas): posebna, uokvirena, u boji stavke.
   if (zivo) {
     var tajmer = ucitajAktivniTajmer();
     if (tajmer !== null && tajmer.datum === datum && tajmer.start !== null) {
-      var stavkaA = nadjiStavku(datum, tajmer.itemId);
-      if (stavkaA !== null) {
-        var aTop = vrh(timestampUMinute(tajmer.start));
-        blokovi.push({
-          top: aTop,
-          visina: Math.max(vrh(timestampUMinute(sada)) - aTop, MIN_VISINA),
-          klasa: "sesija aktivna",
-          boja: stavkaA.boja,
-          aktivna: true,
-          naslov: escapeHtml(stavkaA.naziv),
-          podnaslov: formatSatMinut(tajmer.start) + "–" + formatSatMinut(sada)
-        });
+      var sa = nadjiStavku(datum, tajmer.itemId);
+      if (sa !== null) {
+        stavke.push({ itemId: sa.id, boja: sa.boja, naziv: sa.naziv, cilj: sa.ciljMinuta,
+          start: tajmer.start, end: sada, uToku: true });
       }
     }
   }
+  stavke.sort(function (a, b) { return a.start - b.start; });
 
-  // 2) Rasporedi blokove u kolone da se preklapajući prikazuju jedan pored drugog.
-  rasporediUKolone(blokovi);
+  // Šina (tačno vreme) + nalepnica (gurana naniže da se ne preklapa sa prethodnom).
+  var prethodnoDno = -1e9;
+  var maxDno = visinaTrake;
+  for (var k = 0; k < stavke.length; k++) {
+    var p = stavke[k];
+    var barTop = vrh(timestampUMinute(p.start));
+    var barVisina = Math.max(vrh(timestampUMinute(p.end)) - barTop, 6);
+    var trajMin = Math.round((p.end - p.start) / 60000);
+    var odradjeno = minutiStavke(datum, p.itemId, sada);
+    var zavrsena = odradjeno >= p.cilj;
 
-  // 3) Iscrtaj: prvo oznake sati, pa blokovi, pa "sada" linija na vrhu.
+    var nalepTop = Math.max(barTop, prethodnoDno + RAZMAK);
+    prethodnoDno = nalepTop + VISINA_NALEPNICE;
+    maxDno = Math.max(maxDno, prethodnoDno);
+
+    var atributi = dataAtributi(p.naziv, p.boja, formatSatMinut(p.start),
+      formatSatMinut(p.end), trajMin, p.cilj, odradjeno, p.uToku);
+
+    railHtml +=
+      '<div class="rail-bar' + (p.uToku ? " aktivna" : "") + '" style="top:' + barTop +
+        "px;height:" + barVisina + "px;background:" + p.boja + '"' + atributi + "></div>";
+
+    agendaHtml +=
+      '<div class="agenda-red' + (p.uToku ? " aktivna" : "") + '" style="top:' + nalepTop +
+        "px;border-left-color:" + p.boja + '"' + atributi + ">" +
+        '<span class="dot" style="background:' + p.boja + '"></span>' +
+        '<span class="agenda-tekst">' +
+          "<strong>" + escapeHtml(p.naziv) +
+            (zavrsena ? ' <span class="cek" style="color:' + p.boja + '">✓</span>' : "") +
+          "</strong>" +
+          "<small>" + formatSatMinut(p.start) + "–" + formatSatMinut(p.end) + " · " +
+            (p.uToku ? "u toku" : formatTrajanje(trajMin)) + "</small>" +
+        "</span>" +
+        (p.uToku ? '<span class="agenda-znak">●</span>' : "") +
+      "</div>";
+  }
+
+  // Visina platna prati i eventualno gurnute nalepnice.
+  var visina = maxDno + 4;
   var html = '<div class="vtraka" style="height:' + visina + 'px">';
 
   for (var sat = raspon.od; sat <= raspon.do; sat += 60) {
@@ -763,32 +796,7 @@ function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
       "</div>";
   }
 
-  for (var b = 0; b < blokovi.length; b++) {
-    var blok = blokovi[b];
-    // Širina i pomak kolone: jedan blok = puna širina; više preklapajućih deli prostor.
-    var left = 0;
-    var sirina = 100;
-    if (blok.brojKolona > 1) {
-      var kol = 100 / blok.brojKolona;
-      left = blok.kolona * kol;
-      sirina = kol - 2; // 2% razmaka između kolona
-    }
-
-    var stil = "top:" + blok.top + "px;height:" + blok.visina +
-      "px;left:" + left + "%;width:" + sirina + "%;";
-    if (blok.boja) {
-      stil += blok.aktivna
-        ? "border-color:" + blok.boja + ";background:" + blok.boja + "22;"
-        : "border-left-color:" + blok.boja + ";background:" + blok.boja + "15;";
-    }
-
-    html +=
-      '<div class="vtraka-blok ' + blok.klasa + (blok.visina < KOMPAKT_PRAG ? " kompakt" : "") +
-        '" style="' + stil + '">' +
-        "<strong>" + blok.naslov + "</strong>" +
-        "<small>" + blok.podnaslov + "</small>" +
-      "</div>";
-  }
+  html += bandHtml + railHtml + agendaHtml;
 
   if (zivo) {
     var sadaMin = timestampUMinute(sada);
@@ -800,47 +808,42 @@ function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
     }
   }
 
+  if (dan.fixedEvents.length === 0 && stavke.length === 0) {
+    html += '<p class="prazno">Još nema aktivnosti za ovaj dan.</p>';
+  }
+
   html += "</div>";
   kontejner.innerHTML = html;
 }
 
-// Raspoređuje blokove timeline-a u kolone (kao kalendar): oni čiji se prikazani
-// piksel-opsezi preklapaju dobijaju susedne kolone umesto da se pokrivaju.
-// Svakom bloku upisuje .kolona (indeks kolone) i .brojKolona (koliko kolona
-// ima njegova grupa preklapanja).
-function rasporediUKolone(blokovi) {
-  blokovi.sort(function (a, b) { return a.top - b.top; });
+// Otvara modal sa detaljima iz data-atributa kliknutog elementa (šina/nalepnica/događaj).
+function otvoriModalIzElementa(el) {
+  document.getElementById("ma-dot").style.background = el.dataset.boja || "var(--ink-blago)";
+  document.getElementById("ma-naziv").textContent = decodeURIComponent(el.dataset.naziv);
+  document.getElementById("ma-vreme").textContent = el.dataset.od + " – " + el.dataset.do;
 
-  var grupa = [];       // blokovi tekuće grupe preklapanja
-  var krajKolone = [];  // donja ivica poslednjeg bloka u svakoj koloni
+  var traj = formatTrajanje(Number(el.dataset.traj));
+  document.getElementById("ma-trajanje").textContent =
+    el.dataset.utoku === "1" ? traj + " (u toku)" : traj;
 
-  // Kad grupa preklapanja završi, upiši svima koliko je kolona imala.
-  function zatvoriGrupu() {
-    for (var i = 0; i < grupa.length; i++) {
-      grupa[i].brojKolona = krajKolone.length;
-    }
-    grupa = [];
-    krajKolone = [];
+  // Red "Cilj danas" postoji samo za stavke (ne za fiksne događaje).
+  var ciljRed = document.getElementById("ma-cilj-red");
+  if (el.dataset.cilj) {
+    var cilj = Number(el.dataset.cilj);
+    var odr = Number(el.dataset.odr);
+    ciljRed.hidden = false;
+    document.getElementById("ma-cilj").textContent =
+      formatTrajanje(odr) + " / " + formatTrajanje(cilj) + " · " + Math.round((odr / cilj) * 100) + "%";
+  } else {
+    ciljRed.hidden = true;
   }
 
-  for (var i = 0; i < blokovi.length; i++) {
-    var blok = blokovi[i];
+  document.getElementById("detalj-aktivnost").hidden = false;
+}
 
-    // Ako blok počinje ispod svih tekućih kolona, prethodna grupa je gotova.
-    if (grupa.length > 0 && blok.top >= Math.max.apply(null, krajKolone)) {
-      zatvoriGrupu();
-    }
-
-    // Nađi prvu kolonu koja se oslobodila (donja ivica iznad vrha ovog bloka).
-    var k = 0;
-    while (k < krajKolone.length && krajKolone[k] > blok.top) {
-      k++;
-    }
-    blok.kolona = k;
-    krajKolone[k] = blok.top + blok.visina;
-    grupa.push(blok);
-  }
-  zatvoriGrupu();
+// Zatvara modal sa detaljima.
+function zatvoriModal() {
+  document.getElementById("detalj-aktivnost").hidden = true;
 }
 
 // "CILJ VS ODRAĐENO": za svaku stavku dana uporedna traka i brojevi.
@@ -1053,6 +1056,20 @@ function init() {
   // Detalj: povratak na Istoriju.
   document.getElementById("detalj-nazad").addEventListener("click", function () {
     prikaziSekciju("istorija");
+  });
+
+  // Timeline: klik na traku/nalepnicu/događaj otvara modal sa detaljima.
+  // Delegirano na dokument (jednom), pa se ne mora vezivati pri svakom re-renderu.
+  document.addEventListener("click", function (e) {
+    var el = e.target.closest(".vtraka [data-naziv]");
+    if (el !== null) otvoriModalIzElementa(el);
+  });
+
+  // Zatvaranje modala: dugme ×, klik na pozadinu, taster Escape.
+  document.getElementById("ma-zatvori").addEventListener("click", zatvoriModal);
+  document.getElementById("modal-poza").addEventListener("click", zatvoriModal);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") zatvoriModal();
   });
 
   // Otkucaj jednom u sekundi: dok tajmer radi, Danas ekran se osvežava

@@ -196,6 +196,23 @@
   </button>
 </nav>
 
+<!-- Modal sa detaljima aktivnosti — otvara se klikom na traku/nalepnicu na timeline-u -->
+<div id="detalj-aktivnost" class="modal" hidden>
+  <div class="modal-poza" id="modal-poza"></div>
+  <div class="modal-karta">
+    <div class="modal-glava">
+      <span class="dot" id="ma-dot"></span>
+      <strong id="ma-naziv"></strong>
+      <button class="modal-x" id="ma-zatvori" title="Zatvori">×</button>
+    </div>
+    <dl class="modal-lista">
+      <div><dt>Vreme</dt><dd id="ma-vreme"></dd></div>
+      <div><dt>Trajanje</dt><dd id="ma-trajanje"></dd></div>
+      <div id="ma-cilj-red"><dt>Cilj danas</dt><dd id="ma-cilj"></dd></div>
+    </dl>
+  </div>
+</div>
+
 <script src="storage.js"></script>
 <script src="timer.js"></script>
 <script src="app.js"></script>

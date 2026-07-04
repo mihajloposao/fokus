@@ -840,62 +840,88 @@ input:focus {
   font-variant-numeric: tabular-nums;
 }
 
-/* left i width se postavljaju inline (kolone za preklapajuće blokove) */
-.vtraka-blok {
+/* Fiksni događaj: puna traka preko širine ("zauzeto"), klikabilna za detalje */
+.vtraka-band {
   position: absolute;
-  border-radius: 10px;
+  left: 0;
+  right: 0;
+  border-radius: 8px;
   padding: 6px 12px;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.vtraka-blok strong {
-  font-size: 13px;
-}
-
-.vtraka-blok small {
-  font-size: 11px;
-  color: var(--ink-blago);
-  font-variant-numeric: tabular-nums;
-}
-
-.vtraka-blok.sesija {
-  border-left: 3px solid;
-}
-
-/* Nizak blok (kratka sesija): naziv i vreme u jednom redu */
-.vtraka-blok.kompakt {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.vtraka-blok.kompakt strong,
-.vtraka-blok.kompakt small {
-  white-space: nowrap;
-}
-
-.vtraka-blok.zauzeto {
+  cursor: pointer;
   background: repeating-linear-gradient(45deg, #ebdfc2, #ebdfc2 4px, #e3d3b1 4px, #e3d3b1 8px);
   border: 1px solid #d9c9a5;
   color: #6f6248;
 }
 
-.vtraka-blok.zauzeto small {
-  color: #8d7f61;
+.vtraka-band strong { font-size: 13px; }
+.vtraka-band small { font-size: 11px; color: #8d7f61; display: block; }
+
+/* Šina: tanka vremenski-tačna traka u boji stavke — kratka aktivnost se vidi kao
+   kratka crtica, ali se nikad ne "izgubi" jer tekst nije u njoj nego u nalepnici. */
+.rail-bar {
+  position: absolute;
+  left: 0;
+  width: 9px;
+  min-height: 6px;
+  border-radius: 5px;
+  cursor: pointer;
 }
 
-/* Aktivna sesija (Danas): pun okvir u boji stavke + blagi "glow" */
-.vtraka-blok.aktivna {
-  border: 2px solid;
+.rail-bar.aktivna {
+  box-shadow: 0 0 0 3px rgba(35, 47, 75, 0.10);
+}
+
+/* Agenda nalepnica desno: uvek pune visine i čitljiva; kad bi se poklopila sa
+   susednom, gura se naniže (redosled ostaje), pa se nazivi nikad ne seku. */
+.agenda-red {
+  position: absolute;
+  left: 20px;
+  right: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 12px;
+  background: var(--paper-svetlo);
+  border: 1px solid var(--linija);
+  border-left: 3px solid;
+  border-radius: 10px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.agenda-red.aktivna {
   box-shadow: 0 0 0 3px rgba(35, 47, 75, 0.08);
 }
 
+.agenda-tekst {
+  flex: 1;
+  min-width: 0;
+}
+
+.agenda-tekst strong {
+  font-size: 13px;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agenda-tekst small {
+  font-size: 11px;
+  color: var(--ink-blago);
+  font-variant-numeric: tabular-nums;
+}
+
+.agenda-znak {
+  color: var(--crvena);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
 /* Kvačica pored naziva kad je stavka dostigla cilj */
-.vtraka-blok .cek {
+.cek {
   font-size: 11px;
 }
 
@@ -956,6 +982,97 @@ input:focus {
   color: var(--ink-blago);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
+}
+
+/* ===================== MODAL: DETALJI AKTIVNOSTI ===================== */
+
+/* Otvara se klikom na traku/nalepnicu na timeline-u. Na telefonu izlazi odozdo. */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.modal-poza {
+  position: absolute;
+  inset: 0;
+  background: rgba(35, 47, 75, 0.35);
+}
+
+.modal-karta {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  background: var(--paper);
+  border-radius: 18px 18px 0 0;
+  padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+  box-shadow: 0 -6px 24px rgba(35, 47, 75, 0.2);
+}
+
+.modal-glava {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.modal-glava .dot {
+  width: 14px;
+  height: 14px;
+}
+
+.modal-glava strong {
+  flex: 1;
+  font-size: 18px;
+}
+
+.modal-x {
+  font-size: 24px;
+  line-height: 1;
+  color: var(--ink-blago);
+  padding: 0 4px;
+}
+
+.modal-lista {
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-lista > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--linija);
+}
+
+.modal-lista > div:last-child {
+  border-bottom: none;
+}
+
+.modal-lista dt {
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ink-blago);
+}
+
+.modal-lista dd {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 700px) {
+  .modal {
+    align-items: center;
+  }
+  .modal-karta {
+    border-radius: 18px;
+  }
 }
 
 /* ===================== DONJA NAVIGACIJA ===================== */
