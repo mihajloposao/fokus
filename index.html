@@ -44,9 +44,20 @@
         <p class="tajmer-naziv" id="tajmer-naziv"></p>
         <p class="tajmer-detalj" id="tajmer-detalj"></p>
         <div class="tajmer-dugmad">
-          <button id="dugme-pauza" class="okruglo svetlo" title="Pauziraj">❙❙</button>
-          <button id="dugme-stop" class="okruglo tamno" title="Zaustavi">■</button>
+          <button id="dugme-pauza" class="tajmer-akcija" title="Pauziraj"><span class="ikona">❙❙</span> Pauziraj</button>
+          <button id="dugme-stop" class="tajmer-akcija tamno" title="Zaustavi"><span class="ikona">■</span> Zaustavi</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Prazno stanje: kad nijedan tajmer ne radi, objašnjava gde i kako se pokreće -->
+    <div id="tajmer-prazan" class="tajmer-prazan" hidden>
+      <span class="tajmer-prazan-ikona">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9v4l2 2M9 2h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </span>
+      <div class="tajmer-prazan-tekst">
+        <strong id="tajmer-prazan-naslov">Spremno za fokus</strong>
+        <p id="tajmer-prazan-opis">Izaberi stavku iz liste ispod i pritisni ▶ da pokreneš tajmer.</p>
       </div>
     </div>
 

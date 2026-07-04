@@ -21,6 +21,12 @@
   padding: 0;
 }
 
+/* "hidden" atribut mora da pobedi: inače display:flex na karticama (tajmer,
+   prazno stanje) nadjača podrazumevano [hidden]{display:none} pa se vide obe. */
+[hidden] {
+  display: none !important;
+}
+
 html {
   -webkit-text-size-adjust: 100%; /* spreči da telefon sam uveća font */
   touch-action: pan-y;            /* dozvoli samo vertikalni skrol — bez pinch-zooma */
@@ -266,30 +272,73 @@ input:focus {
 
 .tajmer-dugmad {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   margin-top: 12px;
 }
 
-.okruglo {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  font-size: 14px;
+/* Dugmad tajmera sa ikonom i tekstom (jasnije nego samo ikonice) */
+.tajmer-akcija {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--linija);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.tajmer-akcija .ikona {
+  font-size: 12px;
+}
+
+.tajmer-akcija.tamno {
+  background: var(--ink);
+  color: var(--paper-svetlo);
+  border-color: var(--ink);
+}
+
+/* Prazno stanje tajmera: kad ništa ne radi, objašnjava gde/kako se pokreće */
+.tajmer-prazan {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 18px 16px;
+  background: var(--paper-svetlo);
+  border: 1px dashed var(--linija);
+  border-radius: 16px;
+}
+
+.tajmer-prazan-ikona {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.okruglo.svetlo {
+  color: var(--ink-blago);
   background: var(--paper);
-  border: 1px solid var(--linija);
-  box-shadow: 0 2px 6px rgba(35, 47, 75, 0.08);
+  border-radius: 50%;
 }
 
-.okruglo.tamno {
-  background: var(--ink);
-  color: var(--paper-svetlo);
-  box-shadow: 0 4px 10px rgba(35, 47, 75, 0.3);
+.tajmer-prazan-ikona svg {
+  width: 24px;
+  height: 24px;
+}
+
+.tajmer-prazan-tekst strong {
+  font-size: 15px;
+  display: block;
+}
+
+.tajmer-prazan-tekst p {
+  font-size: 13px;
+  color: var(--ink-blago);
+  margin-top: 3px;
+  line-height: 1.4;
 }
 
 /* Kompaktna legenda u naslovu trake (samo "u toku" i "zauzeto") */
@@ -427,14 +476,24 @@ input:focus {
   font-variant-numeric: tabular-nums;
 }
 
+/* Ink-popunjeno okruglo dugme — jasno se čita kao "pokreni tajmer" */
 .play-dugme {
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  border: 1px solid var(--linija);
-  background: var(--paper);
+  border: none;
+  background: var(--ink);
+  color: var(--paper-svetlo);
   font-size: 12px;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Aktivna (koja upravo radi) stavka: dugme dobije boju stavke i suptilan prsten */
+.stavka-red.aktivna .play-dugme {
+  box-shadow: 0 0 0 3px rgba(35, 47, 75, 0.12);
 }
 
 .obrisi-dugme {
@@ -781,10 +840,9 @@ input:focus {
   font-variant-numeric: tabular-nums;
 }
 
+/* left i width se postavljaju inline (kolone za preklapajuće blokove) */
 .vtraka-blok {
   position: absolute;
-  left: 10px;
-  right: 0;
   border-radius: 10px;
   padding: 6px 12px;
   overflow: hidden;

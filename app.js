@@ -303,22 +303,34 @@ function renderDanas() {
 // neka stavka izabrana (tajmer radi ili je pauziran).
 function renderTajmerPanel(sada) {
   var panel = document.getElementById("tajmer-panel");
+  var prazan = document.getElementById("tajmer-prazan");
   var tajmer = ucitajAktivniTajmer();
 
-  if (tajmer === null) {
-    panel.hidden = true;
-    return;
+  var stavka = null;
+  if (tajmer !== null) {
+    stavka = nadjiStavku(tajmer.datum, tajmer.itemId);
+    // Stavka je u međuvremenu obrisana — tajmer više nema smisla.
+    if (stavka === null) {
+      obrisiAktivniTajmer();
+      tajmer = null;
+    }
   }
 
-  var stavka = nadjiStavku(tajmer.datum, tajmer.itemId);
-  if (stavka === null) {
-    // Stavka je u međuvremenu obrisana — tajmer više nema smisla.
-    obrisiAktivniTajmer();
+  // Nema aktivnog tajmera → prazno stanje koje objašnjava gde se pokreće.
+  if (tajmer === null) {
     panel.hidden = true;
+    prazan.hidden = false;
+    var imaStavki = ucitajDan(danasKey()).items.length > 0;
+    document.getElementById("tajmer-prazan-naslov").textContent =
+      imaStavki ? "Spremno za fokus" : "Nema plana za danas";
+    document.getElementById("tajmer-prazan-opis").textContent = imaStavki
+      ? "Izaberi stavku iz liste ispod i pritisni ▶ da pokreneš tajmer."
+      : "Otvori karticu Plan i dodaj stavke koje želiš da pratiš.";
     return;
   }
 
   panel.hidden = false;
+  prazan.hidden = true;
   var radi = tajmerRadi(tajmer);
 
   var odradjeno = minutiStavke(tajmer.datum, stavka.id, sada);
@@ -347,9 +359,12 @@ function renderTajmerPanel(sada) {
   document.getElementById("tajmer-detalj").textContent =
     "cilj " + formatKratko(stavka.ciljMinuta) + " · " + sesijaBroj + ". sesija";
 
-  // Dugme pauza postaje play kad je tajmer pauziran.
-  document.getElementById("dugme-pauza").textContent = radi ? "❙❙" : "▶";
-  document.getElementById("dugme-pauza").title = radi ? "Pauziraj" : "Nastavi";
+  // Dugme "Pauziraj" postaje "Nastavi" (▶) kad je tajmer pauziran.
+  var pauzaBtn = document.getElementById("dugme-pauza");
+  pauzaBtn.innerHTML = radi
+    ? '<span class="ikona">❙❙</span> Pauziraj'
+    : '<span class="ikona">▶</span> Nastavi';
+  pauzaBtn.title = radi ? "Pauziraj" : "Nastavi";
 }
 
 // Lista stavki iz današnjeg plana, svaka sa play/pauza dugmetom i napretkom.
@@ -384,8 +399,9 @@ function renderListuStavkiDanas(datum, sada) {
     }
 
     html +=
-      '<div class="stavka-red' + (zavrsena ? " zavrsena" : "") + '">' +
-        '<button class="play-dugme" data-item="' + stavka.id + '" title="' + (ovaRadi ? "Pauziraj" : "Pokreni") + '">' +
+      '<div class="stavka-red' + (zavrsena ? " zavrsena" : "") + (ovaRadi ? " aktivna" : "") + '">' +
+        '<button class="play-dugme" data-item="' + stavka.id + '" style="' +
+          (ovaRadi ? "background:" + stavka.boja : "") + '" title="' + (ovaRadi ? "Pauziraj" : "Pokreni") + '">' +
           (ovaRadi ? "❙❙" : "▶") +
         "</button>" +
         (zavrsena
@@ -668,7 +684,9 @@ function renderDetalj() {
 function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
   var dan = ucitajDan(datum);
   var raspon = rasponTrake(datum, sada);
-  var PIKSELA_PO_SATU = 48;
+  var PIKSELA_PO_SATU = 60; // veći razmak da kratke sesije imaju mesta
+  var MIN_VISINA = 30;      // najmanja visina bloka da naslov stane
+  var KOMPAKT_PRAG = 54;    // niži blokovi prikazuju naziv i vreme u jednom redu
   var visina = ((raspon.do - raspon.od) / 60) * PIKSELA_PO_SATU;
 
   // Pozicija minuta-u-danu kao piksel od vrha.
@@ -676,9 +694,68 @@ function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
     return ((minuti - raspon.od) / 60) * PIKSELA_PO_SATU;
   }
 
+  // 1) Sakupi sve blokove (fiksni događaji + sesije + tekuća sesija) u jednu
+  //    listu. Svaki blok pamti svoj piksel-opseg da bismo mogli da ih rasporedimo.
+  var blokovi = [];
+
+  for (var i = 0; i < dan.fixedEvents.length; i++) {
+    var ev = dan.fixedEvents[i];
+    var evTop = vrh(vremeUMinute(ev.od));
+    blokovi.push({
+      top: evTop,
+      visina: Math.max(vrh(vremeUMinute(ev.do)) - evTop, MIN_VISINA),
+      klasa: "zauzeto",
+      boja: null,
+      naslov: escapeHtml(ev.naziv),
+      podnaslov: ev.od + "–" + ev.do + " · zauzeto"
+    });
+  }
+
+  for (var j = 0; j < dan.sessions.length; j++) {
+    var s = dan.sessions[j];
+    var stavka = nadjiStavku(datum, s.itemId);
+    if (stavka === null) continue;
+    var sTop = vrh(timestampUMinute(s.start));
+    var trajanjeMin = Math.round((s.end - s.start) / 60000);
+    // Kvačica ako je stavka (ukupno danas) dostigla svoj cilj.
+    var zavrsena = minutiStavke(datum, stavka.id, sada) >= stavka.ciljMinuta;
+    blokovi.push({
+      top: sTop,
+      visina: Math.max(vrh(timestampUMinute(s.end)) - sTop, MIN_VISINA),
+      klasa: "sesija",
+      boja: stavka.boja,
+      naslov: escapeHtml(stavka.naziv) +
+        (zavrsena ? ' <span class="cek" style="color:' + stavka.boja + '">✓</span>' : ""),
+      podnaslov: formatSatMinut(s.start) + "–" + formatSatMinut(s.end) + " · " + formatTrajanje(trajanjeMin)
+    });
+  }
+
+  // Tekuća sesija (samo Danas): posebna, uokvirena, u boji stavke.
+  if (zivo) {
+    var tajmer = ucitajAktivniTajmer();
+    if (tajmer !== null && tajmer.datum === datum && tajmer.start !== null) {
+      var stavkaA = nadjiStavku(datum, tajmer.itemId);
+      if (stavkaA !== null) {
+        var aTop = vrh(timestampUMinute(tajmer.start));
+        blokovi.push({
+          top: aTop,
+          visina: Math.max(vrh(timestampUMinute(sada)) - aTop, MIN_VISINA),
+          klasa: "sesija aktivna",
+          boja: stavkaA.boja,
+          aktivna: true,
+          naslov: escapeHtml(stavkaA.naziv),
+          podnaslov: formatSatMinut(tajmer.start) + "–" + formatSatMinut(sada)
+        });
+      }
+    }
+  }
+
+  // 2) Rasporedi blokove u kolone da se preklapajući prikazuju jedan pored drugog.
+  rasporediUKolone(blokovi);
+
+  // 3) Iscrtaj: prvo oznake sati, pa blokovi, pa "sada" linija na vrhu.
   var html = '<div class="vtraka" style="height:' + visina + 'px">';
 
-  // Oznake sati i horizontalne linije.
   for (var sat = raspon.od; sat <= raspon.do; sat += 60) {
     html +=
       '<div class="vtraka-sat" style="top:' + vrh(sat) + 'px">' +
@@ -686,63 +763,34 @@ function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
       "</div>";
   }
 
-  // Blokovi niži od ovoga prikazuju naziv i vreme u jednom redu da se tekst ne seče.
-  var KOMPAKT_PRAG = 52;
-
-  // Fiksni događaji (šrafirano, "zauzeto").
-  for (var i = 0; i < dan.fixedEvents.length; i++) {
-    var ev = dan.fixedEvents[i];
-    var odMin = vremeUMinute(ev.od);
-    var doMin = vremeUMinute(ev.do);
-    var visinaEv = Math.max(vrh(doMin) - vrh(odMin), 24);
-    html +=
-      '<div class="vtraka-blok zauzeto' + (visinaEv < KOMPAKT_PRAG ? " kompakt" : "") +
-        '" style="top:' + vrh(odMin) + "px;height:" + visinaEv + 'px">' +
-        "<strong>" + escapeHtml(ev.naziv) + "</strong>" +
-        "<small>" + ev.od + "–" + ev.do + " · zauzeto</small>" +
-      "</div>";
-  }
-
-  // Sesije, svaka kao poseban blok u boji stavke, sa vremenom i trajanjem.
-  for (var j = 0; j < dan.sessions.length; j++) {
-    var s = dan.sessions[j];
-    var stavka = nadjiStavku(datum, s.itemId);
-    if (stavka === null) continue;
-    var start = timestampUMinute(s.start);
-    var kraj = timestampUMinute(s.end);
-    var trajanjeMin = Math.round((s.end - s.start) / 60000);
-    var visinaS = Math.max(vrh(kraj) - vrh(start), 24);
-    // Kvačica ako je stavka (ukupno danas) dostigla svoj cilj.
-    var zavrsena = minutiStavke(datum, stavka.id, sada) >= stavka.ciljMinuta;
-    html +=
-      '<div class="vtraka-blok sesija' + (visinaS < KOMPAKT_PRAG ? " kompakt" : "") +
-        '" style="top:' + vrh(start) + "px;height:" + visinaS +
-        "px;border-left-color:" + stavka.boja + ";background:" + stavka.boja + '15">' +
-        "<strong>" + escapeHtml(stavka.naziv) +
-          (zavrsena ? ' <span class="cek" style="color:' + stavka.boja + '">✓</span>' : "") +
-        "</strong>" +
-        "<small>" + formatSatMinut(s.start) + "–" + formatSatMinut(s.end) + " · " + formatTrajanje(trajanjeMin) + "</small>" +
-      "</div>";
-  }
-
-  // Živi režim (Danas): blok sesije u toku + crvena linija trenutnog vremena.
-  if (zivo) {
-    var tajmer = ucitajAktivniTajmer();
-    if (tajmer !== null && tajmer.datum === datum && tajmer.start !== null) {
-      var stavkaA = nadjiStavku(datum, tajmer.itemId);
-      if (stavkaA !== null) {
-        var a0 = timestampUMinute(tajmer.start);
-        var a1 = timestampUMinute(sada);
-        var visinaA = Math.max(vrh(a1) - vrh(a0), 24);
-        html +=
-          '<div class="vtraka-blok sesija aktivna' + (visinaA < KOMPAKT_PRAG ? " kompakt" : "") +
-            '" style="top:' + vrh(a0) + "px;height:" + visinaA +
-            "px;border-color:" + stavkaA.boja + ";background:" + stavkaA.boja + '22">' +
-            "<strong>" + escapeHtml(stavkaA.naziv) + "</strong>" +
-            "<small>" + formatSatMinut(tajmer.start) + "–" + formatSatMinut(sada) + "</small>" +
-          "</div>";
-      }
+  for (var b = 0; b < blokovi.length; b++) {
+    var blok = blokovi[b];
+    // Širina i pomak kolone: jedan blok = puna širina; više preklapajućih deli prostor.
+    var left = 0;
+    var sirina = 100;
+    if (blok.brojKolona > 1) {
+      var kol = 100 / blok.brojKolona;
+      left = blok.kolona * kol;
+      sirina = kol - 2; // 2% razmaka između kolona
     }
+
+    var stil = "top:" + blok.top + "px;height:" + blok.visina +
+      "px;left:" + left + "%;width:" + sirina + "%;";
+    if (blok.boja) {
+      stil += blok.aktivna
+        ? "border-color:" + blok.boja + ";background:" + blok.boja + "22;"
+        : "border-left-color:" + blok.boja + ";background:" + blok.boja + "15;";
+    }
+
+    html +=
+      '<div class="vtraka-blok ' + blok.klasa + (blok.visina < KOMPAKT_PRAG ? " kompakt" : "") +
+        '" style="' + stil + '">' +
+        "<strong>" + blok.naslov + "</strong>" +
+        "<small>" + blok.podnaslov + "</small>" +
+      "</div>";
+  }
+
+  if (zivo) {
     var sadaMin = timestampUMinute(sada);
     if (sadaMin >= raspon.od && sadaMin <= raspon.do) {
       html +=
@@ -754,6 +802,45 @@ function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
 
   html += "</div>";
   kontejner.innerHTML = html;
+}
+
+// Raspoređuje blokove timeline-a u kolone (kao kalendar): oni čiji se prikazani
+// piksel-opsezi preklapaju dobijaju susedne kolone umesto da se pokrivaju.
+// Svakom bloku upisuje .kolona (indeks kolone) i .brojKolona (koliko kolona
+// ima njegova grupa preklapanja).
+function rasporediUKolone(blokovi) {
+  blokovi.sort(function (a, b) { return a.top - b.top; });
+
+  var grupa = [];       // blokovi tekuće grupe preklapanja
+  var krajKolone = [];  // donja ivica poslednjeg bloka u svakoj koloni
+
+  // Kad grupa preklapanja završi, upiši svima koliko je kolona imala.
+  function zatvoriGrupu() {
+    for (var i = 0; i < grupa.length; i++) {
+      grupa[i].brojKolona = krajKolone.length;
+    }
+    grupa = [];
+    krajKolone = [];
+  }
+
+  for (var i = 0; i < blokovi.length; i++) {
+    var blok = blokovi[i];
+
+    // Ako blok počinje ispod svih tekućih kolona, prethodna grupa je gotova.
+    if (grupa.length > 0 && blok.top >= Math.max.apply(null, krajKolone)) {
+      zatvoriGrupu();
+    }
+
+    // Nađi prvu kolonu koja se oslobodila (donja ivica iznad vrha ovog bloka).
+    var k = 0;
+    while (k < krajKolone.length && krajKolone[k] > blok.top) {
+      k++;
+    }
+    blok.kolona = k;
+    krajKolone[k] = blok.top + blok.visina;
+    grupa.push(blok);
+  }
+  zatvoriGrupu();
 }
 
 // "CILJ VS ODRAĐENO": za svaku stavku dana uporedna traka i brojevi.
