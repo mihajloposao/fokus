@@ -30,14 +30,24 @@
     <!-- Kompaktna kartica tajmera — vidljiva samo dok je neka stavka aktivna/pauzirana -->
     <div id="tajmer-panel" class="tajmer-kartica" hidden>
       <div class="ring-omotac">
-        <!-- Talasi i kometa se vide samo dok tajmer broji (klasa "radi" na kartici) -->
+        <!-- Eho talasi se vide samo dok tajmer broji (klasa "radi" na kartici) -->
         <span class="ping"></span>
         <span class="ping ping2"></span>
         <svg viewBox="0 0 200 200" class="ring">
+          <defs>
+            <!-- Maska = kopija luka progresa: "struja" ispod se vidi samo
+                 unutar popunjenog dela prstena (JS joj zadaje isti dashoffset) -->
+            <mask id="maska-progres">
+              <circle id="ring-maska" cx="100" cy="100" r="90" stroke="#fff"></circle>
+            </mask>
+          </defs>
           <circle class="ring-pozadina" cx="100" cy="100" r="90"></circle>
           <circle id="ring-progres" cx="100" cy="100" r="90"></circle>
+          <g mask="url(#maska-progres)">
+            <circle class="ring-struja struja1" cx="100" cy="100" r="90"></circle>
+            <circle class="ring-struja struja2" cx="100" cy="100" r="90"></circle>
+          </g>
         </svg>
-        <div class="orbita"><span class="kometa"></span></div>
         <div class="ring-sadrzaj">
           <p class="tajmer-vreme" id="tajmer-vreme">0:00:00</p>
           <p class="tajmer-cilj" id="tajmer-cilj"></p>
@@ -47,10 +57,10 @@
         <p class="nadnaslov" id="tajmer-status">● U TOKU</p>
         <p class="tajmer-naziv" id="tajmer-naziv"></p>
         <p class="tajmer-detalj" id="tajmer-detalj"></p>
-        <div class="tajmer-dugmad">
-          <button id="dugme-pauza" class="tajmer-akcija" title="Pauziraj"><span class="ikona">❙❙</span> Pauziraj</button>
-          <button id="dugme-stop" class="tajmer-akcija tamno" title="Zaustavi"><span class="ikona">■</span> Zaustavi</button>
-        </div>
+      </div>
+      <div class="tajmer-dugmad">
+        <button id="dugme-pauza" class="tajmer-akcija" title="Pauziraj"><span class="ikona">❙❙</span> Pauziraj</button>
+        <button id="dugme-stop" class="tajmer-akcija tamno" title="Zaustavi"><span class="ikona">■</span> Zaustavi</button>
       </div>
     </div>
 
