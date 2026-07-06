@@ -30,10 +30,14 @@
     <!-- Kompaktna kartica tajmera — vidljiva samo dok je neka stavka aktivna/pauzirana -->
     <div id="tajmer-panel" class="tajmer-kartica" hidden>
       <div class="ring-omotac">
+        <!-- Talasi i kometa se vide samo dok tajmer broji (klasa "radi" na kartici) -->
+        <span class="ping"></span>
+        <span class="ping ping2"></span>
         <svg viewBox="0 0 200 200" class="ring">
           <circle class="ring-pozadina" cx="100" cy="100" r="90"></circle>
           <circle id="ring-progres" cx="100" cy="100" r="90"></circle>
         </svg>
+        <div class="orbita"><span class="kometa"></span></div>
         <div class="ring-sadrzaj">
           <p class="tajmer-vreme" id="tajmer-vreme">0:00:00</p>
           <p class="tajmer-cilj" id="tajmer-cilj"></p>

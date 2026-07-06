@@ -300,6 +300,94 @@ input:focus {
   border-color: var(--ink);
 }
 
+/* ===================== ANIMACIJE TAJMERA (dok broji) ===================== */
+
+/* Sve animacije se pale klasom "radi" na kartici (postavlja je JS), a boju
+   aktivne stavke dobijaju kroz CSS promenljivu --boja (takođe iz JS-a).
+   U pauzi nema klase "radi", pa kartica potpuno miruje. */
+
+/* Talasi i kometa postoje u HTML-u stalno, ali su skriveni dok tajmer ne radi */
+.tajmer-kartica .ping,
+.tajmer-kartica .orbita {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+
+  /* Prsten glatko klizi: tik je na 1s, pa tranzicija od 1s daje neprekidno
+     kretanje umesto preskakanja iz sekunde u sekundu. */
+  .tajmer-kartica.radi #ring-progres {
+    transition: stroke-dashoffset 1s linear;
+  }
+
+  /* Talasi koji se šire iz prstena, u boji stavke (dva, smaknuti za pola ciklusa) */
+  .tajmer-kartica.radi .ping {
+    display: block;
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    border: 2px solid var(--boja, var(--ink));
+    opacity: 0;
+    pointer-events: none;
+    animation: tajmer-talas 2.6s ease-out infinite;
+  }
+
+  .tajmer-kartica.radi .ping2 {
+    animation-delay: 1.3s;
+  }
+
+  @keyframes tajmer-talas {
+    0%   { transform: scale(0.92); opacity: 0.5; }
+    70%  { transform: scale(1.3);  opacity: 0; }
+    100% { transform: scale(1.3);  opacity: 0; }
+  }
+
+  /* Svetleća tačka ("kometa") koja kruži po prstenu */
+  .tajmer-kartica.radi .orbita {
+    display: block;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    animation: tajmer-okret 2.4s linear infinite;
+  }
+
+  /* Prsten u SVG-u ima r=90 od 200 → 45% kutije, pa tačka stoji 5% od vrha */
+  .kometa {
+    position: absolute;
+    left: calc(50% - 4px);
+    top: calc(5% - 4px);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--boja, var(--ink));
+    box-shadow: 0 0 8px 1px var(--boja, var(--ink));
+  }
+
+  @keyframes tajmer-okret {
+    to { transform: rotate(360deg); }
+  }
+
+  /* "● U TOKU" lagano diše u boji stavke */
+  .tajmer-kartica.radi #tajmer-status {
+    color: var(--boja, var(--ink));
+    animation: tajmer-disanje 1.6s ease-in-out infinite;
+  }
+
+  @keyframes tajmer-disanje {
+    50% { opacity: 0.45; }
+  }
+
+  /* Play dugme stavke koja upravo radi šalje puls (radar efekat) */
+  .stavka-red.aktivna .play-dugme {
+    animation: tajmer-puls 2s ease-out infinite;
+  }
+
+  @keyframes tajmer-puls {
+    0%   { box-shadow: 0 0 0 0 rgba(35, 47, 75, 0.35); }
+    100% { box-shadow: 0 0 0 10px rgba(35, 47, 75, 0); }
+  }
+}
+
 /* Prazno stanje tajmera: kad ništa ne radi, objašnjava gde/kako se pokreće */
 .tajmer-prazan {
   display: flex;

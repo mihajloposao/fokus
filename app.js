@@ -333,6 +333,11 @@ function renderTajmerPanel(sada) {
   prazan.hidden = true;
   var radi = tajmerRadi(tajmer);
 
+  // Klasa "radi" pali animacije (talasi, kometa, disanje statusa) samo dok
+  // tajmer stvarno broji; --boja daje animacijama boju aktivne stavke.
+  panel.classList.toggle("radi", radi);
+  panel.style.setProperty("--boja", stavka.boja);
+
   var odradjeno = minutiStavke(tajmer.datum, stavka.id, sada);
   var progres = Math.min(odradjeno / stavka.ciljMinuta, 1);
 
