@@ -13,6 +13,8 @@
   --linija: #e5dac6;        /* ivice i separatori */
   --pesak: #eee3cd;         /* pozadina trake i "zauzetih" blokova */
   --crvena: #c0503e;        /* linija trenutnog vremena na traci */
+  --zvezda-off: #d8cbb0;    /* nepopunjena zvezdica u oceni dana */
+  --tekst-blago: #b3a992;   /* najtiši tekst (placeholder, "čuva se automatski") */
 }
 
 * {
@@ -1060,6 +1062,160 @@ input:focus {
 .nav-dugme.aktivan {
   color: var(--ink);
   font-weight: 700;
+}
+
+/* ===================== OCENA DANA (Detalj) ===================== */
+
+/* Zajednički naslov "OCENA DANA" iznad zvezdica */
+.ocena-naslov {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--ink-blago);
+}
+
+/* Skupljeno stanje: kartica-dugme koje se na klik otvara u editor */
+.ocena-skupljeno {
+  width: 100%;
+  margin-top: 18px;
+  padding: 14px 16px;
+  background: var(--paper-svetlo);
+  border: 1px solid var(--linija);
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(35, 47, 75, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+
+.ocena-skupljeno:hover {
+  border-color: var(--ink);
+}
+
+.ocena-skupljeno-levo {
+  min-width: 0;
+}
+
+.ocena-skupljeno .ocena-naslov {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.ocena-skupljeno-red {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ocena-zvezde-mini {
+  display: flex;
+  gap: 1px;
+}
+
+.ocena-zvezda-mini {
+  font-size: 16px;
+  line-height: 1;
+  color: var(--zvezda-off);
+}
+
+.ocena-zvezda-mini.puna {
+  color: var(--ink);
+}
+
+.ocena-oznaka {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.ocena-strelica {
+  font-size: 22px;
+  color: var(--ink-blago);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Otvoreno stanje: pun editor sa velikim zvezdicama i beleškom */
+.ocena-otvoreno {
+  margin-top: 18px;
+  padding: 16px;
+  background: var(--paper-svetlo);
+  border: 1px solid var(--linija);
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(35, 47, 75, 0.05);
+}
+
+.ocena-otvoreno-zaglavlje {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ocena-sakrij {
+  font-size: 18px;
+  color: var(--ink-blago);
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.ocena-zvezde {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.ocena-zvezda {
+  font-size: 38px;
+  line-height: 1;
+  padding: 0 3px;
+  color: var(--zvezda-off);
+  transition: color 0.12s;
+}
+
+.ocena-zvezda.puna {
+  color: var(--ink);
+}
+
+.ocena-oznaka-centar {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: center;
+  margin-top: 6px;
+}
+
+.ocena-belezka {
+  width: 100%;
+  margin-top: 12px;
+  min-height: 54px;
+  resize: none;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--linija);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.ocena-belezka:focus {
+  outline: 2px solid var(--ink);
+  outline-offset: -1px;
+}
+
+.ocena-belezka::placeholder {
+  color: var(--tekst-blago);
+}
+
+.ocena-auto {
+  font-size: 11px;
+  color: var(--tekst-blago);
+  margin-top: 8px;
+  text-align: right;
 }
 
 /* ===================== DESKTOP ===================== */

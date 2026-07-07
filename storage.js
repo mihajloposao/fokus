@@ -10,7 +10,9 @@
  *     "2026-07-04": {
  *       fixedEvents: [ { naziv, od: "09:00", do: "10:30" } ],
  *       items:       [ { id, naziv, boja, ciljMinuta } ],
- *       sessions:    [ { itemId, start: timestamp_ms, end: timestamp_ms } ]
+ *       sessions:    [ { itemId, start: timestamp_ms, end: timestamp_ms } ],
+ *       ocena:       0,     // ocena dana 0–5 (opciono; 0 = neocenjeno)
+ *       beleska:     ""     // beleška o danu (opciono)
  *     }
  *   }
  *

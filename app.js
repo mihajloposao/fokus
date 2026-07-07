@@ -20,6 +20,9 @@ var DANI_KRATKO = ["NED", "PON", "UTO", "SRE", "ČET", "PET", "SUB"];
 var MESECI = ["januar", "februar", "mart", "april", "maj", "jun", "jul", "avgust", "septembar", "oktobar", "novembar", "decembar"];
 var MESECI_KRATKO = ["Jan", "Feb", "Mar", "Apr", "Maj", "Jun", "Jul", "Avg", "Sep", "Okt", "Nov", "Dec"];
 
+// Reč uz ocenu dana (indeks = broj zvezdica). 0 = još neocenjeno.
+var OCENA_LABELE = ["Oceni dan", "Težak dan", "Ispod proseka", "Solidno", "Dobar dan", "Odličan dan"];
+
 /* ===================== STANJE UI ===================== */
 
 // Sve što UI pamti između rendera, a NE čuva se u localStorage.
@@ -29,7 +32,8 @@ var stanje = {
   detaljDatum: null,          // datum otvoren na ekranu Detalj dana
   mesecOffset: 0,             // 0 = tekući mesec u Istoriji, -1 = prethodni...
   formaDogadjajOtvorena: false, // da li je otvorena forma za novi fiksni događaj
-  novaBoja: PALETA[0]         // izabrana boja za novu stavku na Plan ekranu
+  novaBoja: PALETA[0],        // izabrana boja za novu stavku na Plan ekranu
+  ocenaOtvorena: false        // da li je editor ocene dana raširen (Detalj ekran)
 };
 
 /* ===================== DATUMI ===================== */
@@ -657,6 +661,7 @@ function renderPoslednjeDane() {
 // Otvara ekran sa detaljima jednog dana iz istorije.
 function otvoriDetalj(datum) {
   stanje.detaljDatum = datum;
+  stanje.ocenaOtvorena = false; // svaki dan počinje sa skupljenom ocenom
   prikaziSekciju("detalj");
 }
 
@@ -671,8 +676,121 @@ function renderDetalj() {
   document.getElementById("detalj-ukupno").textContent = formatTrajanje(ukupnoMinutaDana(datum, sada));
   document.getElementById("detalj-plan").textContent = "od " + formatTrajanje(ukupnoCiljaDana(datum)) + " plana";
 
+  renderOcenaDana(datum);
   renderVertikalnuTraku(document.getElementById("detalj-traka"), datum, sada, false);
   renderCiljVsOdradjeno(datum, sada);
+}
+
+/* ===================== RENDER: OCENA DANA ===================== */
+
+// Upisuje broj zvezdica (0–5) za dati dan.
+function postaviOcenu(datum, broj) {
+  var dan = ucitajDan(datum);
+  dan.ocena = broj;
+  sacuvajDan(datum, dan);
+}
+
+// Upisuje tekst beleške za dati dan.
+function postaviBelesku(datum, tekst) {
+  var dan = ucitajDan(datum);
+  dan.beleska = tekst;
+  sacuvajDan(datum, dan);
+}
+
+// Ocena dana na Detalj ekranu. Dva stanja:
+//   - skupljeno: tanak red-kartica sa mini zvezdicama i rečju, klik ga otvara;
+//   - otvoreno: veliki izbor zvezdica (sa hover pregledom) + beleška koja se
+//     čuva pri svakom kucanju. Zvezdice i beleška se osvežavaju "u mestu" da
+//     kucanje u belešci ne prekida hover, i obrnuto.
+function renderOcenaDana(datum) {
+  var kontejner = document.getElementById("detalj-ocena");
+  var dan = ucitajDan(datum);
+  var ocena = dan.ocena || 0;
+  var beleska = dan.beleska || "";
+
+  // ---- Skupljeno stanje ----
+  if (!stanje.ocenaOtvorena) {
+    var mini = "";
+    for (var i = 1; i <= 5; i++) {
+      mini += '<span class="ocena-zvezda-mini' + (i <= ocena ? " puna" : "") + '">' +
+        (i <= ocena ? "★" : "☆") + "</span>";
+    }
+    kontejner.innerHTML =
+      '<button type="button" class="ocena-skupljeno">' +
+        '<span class="ocena-skupljeno-levo">' +
+          '<span class="ocena-naslov">OCENA DANA</span>' +
+          '<span class="ocena-skupljeno-red">' +
+            '<span class="ocena-zvezde-mini">' + mini + "</span>" +
+            '<span class="ocena-oznaka">' +
+              (ocena ? OCENA_LABELE[ocena] : "Dodaj ocenu dana") +
+            "</span>" +
+          "</span>" +
+        "</span>" +
+        '<span class="ocena-strelica">›</span>' +
+      "</button>";
+    kontejner.querySelector(".ocena-skupljeno").addEventListener("click", function () {
+      stanje.ocenaOtvorena = true;
+      renderOcenaDana(datum);
+    });
+    return;
+  }
+
+  // ---- Otvoreno stanje ----
+  var zvezde = "";
+  for (var j = 1; j <= 5; j++) {
+    zvezde += '<button type="button" class="ocena-zvezda' + (j <= ocena ? " puna" : "") +
+      '" data-n="' + j + '">' + (j <= ocena ? "★" : "☆") + "</button>";
+  }
+  kontejner.innerHTML =
+    '<div class="ocena-otvoreno">' +
+      '<div class="ocena-otvoreno-zaglavlje">' +
+        '<p class="ocena-naslov">OCENA DANA</p>' +
+        '<button type="button" class="ocena-sakrij" title="Sakrij">⌃</button>' +
+      "</div>" +
+      '<div class="ocena-zvezde">' + zvezde + "</div>" +
+      '<p class="ocena-oznaka-centar">' + OCENA_LABELE[ocena] + "</p>" +
+      '<textarea class="ocena-belezka" maxlength="500" placeholder="Beleška o danu (opciono)…">' +
+        escapeHtml(beleska) +
+      "</textarea>" +
+      '<p class="ocena-auto">čuva se automatski</p>' +
+    "</div>";
+
+  var oznaka = kontejner.querySelector(".ocena-oznaka-centar");
+  var dugmad = kontejner.querySelectorAll(".ocena-zvezda");
+
+  // Oboji zvezdice do datog broja i osveži reč ispod njih.
+  function prikaziDo(broj) {
+    for (var k = 0; k < dugmad.length; k++) {
+      var n = k + 1;
+      dugmad[k].textContent = n <= broj ? "★" : "☆";
+      dugmad[k].classList.toggle("puna", n <= broj);
+    }
+    oznaka.textContent = OCENA_LABELE[broj];
+  }
+
+  poveziKlik(kontejner, ".ocena-zvezda", function () {
+    ocena = Number(this.dataset.n);
+    postaviOcenu(datum, ocena);
+    prikaziDo(ocena);
+  });
+  for (var m = 0; m < dugmad.length; m++) {
+    dugmad[m].addEventListener("mouseenter", function () {
+      prikaziDo(Number(this.dataset.n));
+    });
+  }
+  // Kad miš napusti red zvezdica, vrati prikaz na stvarnu (sačuvanu) ocenu.
+  kontejner.querySelector(".ocena-zvezde").addEventListener("mouseleave", function () {
+    prikaziDo(ocena);
+  });
+
+  kontejner.querySelector(".ocena-sakrij").addEventListener("click", function () {
+    stanje.ocenaOtvorena = false;
+    renderOcenaDana(datum);
+  });
+
+  kontejner.querySelector(".ocena-belezka").addEventListener("input", function () {
+    postaviBelesku(datum, this.value);
+  });
 }
 
 // Vertikalni timeline dana: oznake sati levo, blokovi pozicionirani tačno po
