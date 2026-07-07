@@ -344,7 +344,7 @@ function renderTajmerPanel(sada) {
   prazan.hidden = true;
   var radi = tajmerRadi(tajmer);
 
-  // Klasa "radi" pali animacije (talasi, kometa, disanje statusa) samo dok
+  // Klasa "radi" pali animacije (talasi, oreol, disanje statusa) samo dok
   // tajmer stvarno broji; --boja daje animacijama boju aktivne stavke.
   panel.classList.toggle("radi", radi);
   panel.style.setProperty("--boja", stavka.boja);
@@ -357,12 +357,6 @@ function renderTajmerPanel(sada) {
   document.getElementById("ring-progres").style.strokeDasharray = obim;
   document.getElementById("ring-progres").style.strokeDashoffset = obim * (1 - progres);
   document.getElementById("ring-progres").style.stroke = stavka.boja;
-
-  // Vodeni sloj prati isti luk kao progres (isti dasharray/offset), pa mu se
-  // tekstura vidi samo u popunjenom delu prstena.
-  var voda = document.getElementById("ring-voda");
-  voda.style.strokeDasharray = obim;
-  voda.style.strokeDashoffset = obim * (1 - progres);
 
   // Redni broj tekuće sesije = broj već zabeleženih sesija te stavke danas
   // (+1 ako trenutno teče, jer se tekuća sesija upisuje tek na pauzu/stop).

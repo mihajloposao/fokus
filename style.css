@@ -317,10 +317,8 @@ input:focus {
 
 @media (prefers-reduced-motion: no-preference) {
 
-  /* Luk koji se popunjava glatko klizi (tranzicija od 1s poklopljena sa tikom
-     tajmera); vodeni sloj prati isti pomak da ne kasni za lukom. */
-  .tajmer-kartica.radi #ring-progres,
-  .tajmer-kartica.radi #ring-voda {
+  /* Luk koji se popunjava glatko klizi (tranzicija od 1s poklopljena sa tikom tajmera). */
+  .tajmer-kartica.radi #ring-progres {
     transition: stroke-dashoffset 1s linear;
   }
 
