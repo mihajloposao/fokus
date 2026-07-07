@@ -281,6 +281,17 @@ function osveziAktivnuSekciju() {
   if (stanje.sekcija === "detalj") renderDetalj();
 }
 
+// Kači "click" handler na sve elemente koji odgovaraju selektoru unutar
+// kontejnera. Handler se poziva sa elementom kao "this" (npr. this.dataset.item).
+// Objedinjuje obrazac koji se ponavlja u svim render funkcijama koje prave
+// listu dugmadi kroz innerHTML.
+function poveziKlik(kontejner, selektor, handler) {
+  var elementi = kontejner.querySelectorAll(selektor);
+  for (var i = 0; i < elementi.length; i++) {
+    elementi[i].addEventListener("click", handler);
+  }
+}
+
 /* ===================== RENDER: DANAS ===================== */
 
 // Glavni ekran: header sa zbirom, veliki tajmer (ako radi), traka dana, lista stavki.
@@ -346,6 +357,12 @@ function renderTajmerPanel(sada) {
   document.getElementById("ring-progres").style.strokeDasharray = obim;
   document.getElementById("ring-progres").style.strokeDashoffset = obim * (1 - progres);
   document.getElementById("ring-progres").style.stroke = stavka.boja;
+
+  // Vodeni sloj prati isti luk kao progres (isti dasharray/offset), pa mu se
+  // tekstura vidi samo u popunjenom delu prstena.
+  var voda = document.getElementById("ring-voda");
+  voda.style.strokeDasharray = obim;
+  voda.style.strokeDashoffset = obim * (1 - progres);
 
   // Redni broj tekuće sesije = broj već zabeleženih sesija te stavke danas
   // (+1 ako trenutno teče, jer se tekuća sesija upisuje tek na pauzu/stop).
@@ -419,12 +436,9 @@ function renderListuStavkiDanas(datum, sada) {
   kontejner.innerHTML = html;
 
   // Play/pauza po stavci: pokreće tajmer za tu stavku, ili je pauzira ako već radi.
-  var dugmad = kontejner.querySelectorAll(".play-dugme");
-  for (var j = 0; j < dugmad.length; j++) {
-    dugmad[j].addEventListener("click", function () {
-      klikPlayStavke(this.dataset.item);
-    });
-  }
+  poveziKlik(kontejner, ".play-dugme", function () {
+    klikPlayStavke(this.dataset.item);
+  });
 }
 
 /* ===================== TRAKA: RASPON VREMENA ===================== */
@@ -494,12 +508,9 @@ function renderFiksneDogadjaje(dan) {
   }
   kontejner.innerHTML = html;
 
-  var dugmad = kontejner.querySelectorAll(".obrisi-dugme");
-  for (var j = 0; j < dugmad.length; j++) {
-    dugmad[j].addEventListener("click", function () {
-      obrisiFiksniDogadjaj(Number(this.dataset.index));
-    });
-  }
+  poveziKlik(kontejner, ".obrisi-dugme", function () {
+    obrisiFiksniDogadjaj(Number(this.dataset.index));
+  });
 
   // Forma za novi događaj se pokazuje tek na klik dugmeta "+ fiksni događaj".
   document.getElementById("forma-dogadjaj").hidden = !stanje.formaDogadjajOtvorena;
@@ -525,12 +536,9 @@ function renderPlanStavke(dan) {
   }
   kontejner.innerHTML = html;
 
-  var dugmad = kontejner.querySelectorAll(".obrisi-dugme");
-  for (var j = 0; j < dugmad.length; j++) {
-    dugmad[j].addEventListener("click", function () {
-      obrisiStavku(this.dataset.id);
-    });
-  }
+  poveziKlik(kontejner, ".obrisi-dugme", function () {
+    obrisiStavku(this.dataset.id);
+  });
 
   // Izbor boje za novu stavku: šest tačkica, izabrana je uokvirena.
   var birac = document.getElementById("biranje-boje");
@@ -542,13 +550,10 @@ function renderPlanStavke(dan) {
   }
   birac.innerHTML = bojeHtml;
 
-  var bojeDugmad = birac.querySelectorAll(".boja-dugme");
-  for (var m = 0; m < bojeDugmad.length; m++) {
-    bojeDugmad[m].addEventListener("click", function () {
-      stanje.novaBoja = this.dataset.boja;
-      renderPlanStavke(ucitajDan(stanje.planDatum));
-    });
-  }
+  poveziKlik(birac, ".boja-dugme", function () {
+    stanje.novaBoja = this.dataset.boja;
+    renderPlanStavke(ucitajDan(stanje.planDatum));
+  });
 }
 
 /* ===================== RENDER: ISTORIJA ===================== */
@@ -601,14 +606,11 @@ function renderKalendar(godina, mesec) {
   kontejner.innerHTML = html;
 
   // Klik na dan sa planom otvara Detalj dana.
-  var dugmad = kontejner.querySelectorAll(".kal-dan");
-  for (var i = 0; i < dugmad.length; i++) {
-    dugmad[i].addEventListener("click", function () {
-      if (danImaPlan(this.dataset.datum)) {
-        otvoriDetalj(this.dataset.datum);
-      }
-    });
-  }
+  poveziKlik(kontejner, ".kal-dan", function () {
+    if (danImaPlan(this.dataset.datum)) {
+      otvoriDetalj(this.dataset.datum);
+    }
+  });
 }
 
 // Lista poslednjih dana koji imaju plan (do 14 dana unazad, bez današnjeg
@@ -651,12 +653,9 @@ function renderPoslednjeDane() {
 
   kontejner.innerHTML = html === "" ? '<p class="prazno">Još nema sačuvanih dana.</p>' : html;
 
-  var dugmad = kontejner.querySelectorAll(".dan-red");
-  for (var k = 0; k < dugmad.length; k++) {
-    dugmad[k].addEventListener("click", function () {
-      otvoriDetalj(this.dataset.datum);
-    });
-  }
+  poveziKlik(kontejner, ".dan-red", function () {
+    otvoriDetalj(this.dataset.datum);
+  });
 }
 
 /* ===================== RENDER: DETALJ DANA ===================== */

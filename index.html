@@ -35,18 +35,28 @@
         <span class="ping ping2"></span>
         <svg viewBox="0 0 200 200" class="ring">
           <defs>
-            <!-- Maska = kopija luka progresa: "struja" ispod se vidi samo
-                 unutar popunjenog dela prstena (JS joj zadaje isti dashoffset) -->
-            <mask id="maska-progres">
-              <circle id="ring-maska" cx="100" cy="100" r="90" stroke="#fff"></circle>
-            </mask>
+            <!-- Vodena tekstura: animirani šum blago izobličava luk, pa mu se
+                 ivice i kraj neprestano talasaju kao površina vode.
+                 JS uključuje filtere samo dok tajmer radi. -->
+            <filter id="voda-luk" x="-15%" y="-15%" width="130%" height="130%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.012 0.05" numOctaves="2" seed="4">
+                <animate attributeName="baseFrequency" dur="5s"
+                  values="0.012 0.05;0.018 0.065;0.012 0.05" repeatCount="indefinite"/>
+              </feTurbulence>
+              <feDisplacementMap in="SourceGraphic" scale="8" xChannelSelector="R" yChannelSelector="G"/>
+            </filter>
+            <!-- Ista ideja u bržem ritmu — za svetli odsjaj koji se preliva unutar luka -->
+            <filter id="voda-odsjaj" x="-15%" y="-15%" width="130%" height="130%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.02 0.08" numOctaves="2" seed="9">
+                <animate attributeName="baseFrequency" dur="3.4s"
+                  values="0.02 0.08;0.03 0.06;0.02 0.08" repeatCount="indefinite"/>
+              </feTurbulence>
+              <feDisplacementMap in="SourceGraphic" scale="10" xChannelSelector="R" yChannelSelector="G"/>
+            </filter>
           </defs>
           <circle class="ring-pozadina" cx="100" cy="100" r="90"></circle>
           <circle id="ring-progres" cx="100" cy="100" r="90"></circle>
-          <g mask="url(#maska-progres)">
-            <circle class="ring-struja struja1" cx="100" cy="100" r="90"></circle>
-            <circle class="ring-struja struja2" cx="100" cy="100" r="90"></circle>
-          </g>
+          <circle id="ring-voda" cx="100" cy="100" r="90"></circle>
         </svg>
         <div class="ring-sadrzaj">
           <p class="tajmer-vreme" id="tajmer-vreme">0:00:00</p>

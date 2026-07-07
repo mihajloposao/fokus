@@ -317,17 +317,16 @@ input:focus {
 
 @media (prefers-reduced-motion: no-preference) {
 
-  /* Luk koji se popunjava: glatko klizi (tranzicija od 1s poklopljena sa tikom
-     tajmera) i "diše" — sjaj u boji stavke mu se pojačava i stišava u ritmu
-     eho talasa (isti ciklus od 2.6s). */
-  .tajmer-kartica.radi #ring-progres {
+  /* Luk koji se popunjava glatko klizi (tranzicija od 1s poklopljena sa tikom
+     tajmera); vodeni sloj prati isti pomak da ne kasni za lukom. */
+  .tajmer-kartica.radi #ring-progres,
+  .tajmer-kartica.radi #ring-voda {
     transition: stroke-dashoffset 1s linear;
-    animation: tajmer-sjaj 2.6s ease-in-out infinite;
   }
 
-  @keyframes tajmer-sjaj {
-    0%, 100% { filter: drop-shadow(0 0 1px var(--boja, var(--ink))); opacity: 0.9; }
-    50%      { filter: drop-shadow(0 0 7px var(--boja, var(--ink))); opacity: 1; }
+  /* Blagi stalni oreol da luk deluje kao da je pod naponom */
+  .tajmer-kartica.radi #ring-progres {
+    filter: drop-shadow(0 0 3px var(--boja, var(--ink)));
   }
 
   /* Talasi koji se šire iz prstena, u boji stavke (dva, smaknuti za pola ciklusa) */
