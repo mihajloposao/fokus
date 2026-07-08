@@ -1627,6 +1627,43 @@ input:focus {
   font-weight: 600;
 }
 
+/* ===================== EKRAN UČITAVANJA ===================== */
+
+#ucitavanje {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: center;
+  padding: 24px;
+}
+
+.ucit-poruka strong {
+  font-size: 24px;
+  letter-spacing: -0.3px;
+  display: block;
+}
+
+.ucit-poruka p {
+  font-size: 14px;
+  color: var(--ink-blago);
+  margin-top: 6px;
+}
+
+.ucit-poruka button {
+  margin-top: 16px;
+  padding: 11px 20px;
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--paper-svetlo);
+  font-size: 14px;
+  font-weight: 600;
+}
+
 /* ===================== DESKTOP ===================== */
 
 @media (min-width: 700px) {

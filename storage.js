@@ -1,9 +1,17 @@
 /*
- * storage.js — čuvanje i čitanje podataka iz localStorage.
+ * storage.js — perzistencija podataka.
  *
- * Ovaj fajl NE zna ništa o UI-ju. Samo čita i piše sirove podatke.
+ * Podaci žive u Supabase-u (Postgres u oblaku), pa su trajni i dostupni sa
+ * više uređaja. Da ostatak aplikacije ne bi morao da čeka mrežu, ovde se drži
+ * MEMORIJSKI KEŠ: pri pokretanju se svi podaci jednom učitaju sa servera
+ * (ucitajSveIzBaze), pa sva dalja čitanja ostaju trenutna kao pre. Svaki upis
+ * odmah menja keš (i lokalni backup u localStorage), a na server se šalje u
+ * pozadini sa malim odlaganjem (debounce), i "flush"-uje pri zatvaranju.
  *
- * Struktura podataka u localStorage:
+ * Ovaj fajl NE zna ništa o UI-ju.
+ *
+ * Struktura podataka (isti oblici kao ranije, sad kao redovi u tabeli
+ * fokus_store: key = ime ključa, value = JSON):
  *
  * Ključ "fokus-data" — objekat po danima, ključ je datum "YYYY-MM-DD":
  *   {
@@ -17,35 +25,160 @@
  *     }
  *   }
  *
- * Obaveza je aktivnost bez tajmera — samo se čekira; checkedAt pamti tačan
- * trenutak čekiranja (null = još nije urađena).
- *
  * Ključ "fokus-active-timer" — trenutno aktivan tajmer ili null:
  *   { itemId, datum, start: timestamp_ms | null, pausedElapsed: ms }
- *   - start je pravi timestamp početka tekuće sesije (da tajmer preživi refresh)
- *   - start === null znači da je tajmer pauziran
- *   - pausedElapsed je vreme sesije nakupljeno PRE poslednje pauze
+ *
+ * Ključ "fokus-kilaza" — { unosi: { "YYYY-MM-DD": kg }, cilj: number | null }
  */
+
+/* ===================== SUPABASE KONFIGURACIJA ===================== */
+
+// URL projekta i PUBLISHABLE (javni) ključ — namenjeni da budu vidljivi u
+// browseru. NE koristi secret ključ ovde. Pristup je ograničen RLS pravilom
+// na tabelu fokus_store (vidi SQL uz projekat).
+var SUPABASE_URL = "https://pvlirqcojbpbvnlsqlmz.supabase.co";
+var SUPABASE_KEY = "sb_publishable_4MK0o9GHOkoKbNK7F7223Q_rsdSndSm";
+var SUPABASE_TABELA = SUPABASE_URL + "/rest/v1/fokus_store";
+
+/* ===================== MEMORIJSKI KEŠ + SINHRONIZACIJA ===================== */
 
 var KLJUC_PODACI = "fokus-data";
 var KLJUC_TAJMER = "fokus-active-timer";
+var KLJUC_KILAZA = "fokus-kilaza";
+
+// Keš drži vrednosti kao JSON stringove — tačno kao što je localStorage radio,
+// pa se ostatak fajla ponaša identično (parse pri čitanju, stringify pri upisu).
+var kes = {};
+
+var prljavi = {};   // key -> "upsert" | "delete" (ima nesnimljenih izmena)
+var cekaju = {};    // key -> id setTimeout-a (debounce po ključu)
+
+function supaZaglavlja(dodatna) {
+  var z = { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY };
+  if (dodatna) {
+    for (var k in dodatna) z[k] = dodatna[k];
+  }
+  return z;
+}
+
+// Šalje najnoviju izmenu ključa na server (upsert ili delete). keepalive se
+// koristi pri zatvaranju stranice da zahtev preživi.
+function posalji(key, keepalive) {
+  var tip = prljavi[key];
+  if (!tip) return Promise.resolve();
+
+  var url, opcije;
+  if (tip === "delete") {
+    url = SUPABASE_TABELA + "?key=eq." + encodeURIComponent(key);
+    opcije = { method: "DELETE", headers: supaZaglavlja(), keepalive: !!keepalive };
+  } else {
+    url = SUPABASE_TABELA;
+    var value = kes.hasOwnProperty(key) ? JSON.parse(kes[key]) : null;
+    opcije = {
+      method: "POST",
+      headers: supaZaglavlja({ "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates" }),
+      keepalive: !!keepalive,
+      body: JSON.stringify({ key: key, value: value, updated_at: new Date().toISOString() })
+    };
+  }
+
+  return fetch(url, opcije).then(function (r) {
+    if (!r.ok) throw new Error("Supabase " + r.status);
+    if (prljavi[key] === tip) delete prljavi[key]; // ako se u međuvremenu nije promenilo
+  }).catch(function (e) {
+    // Ostavi "prljavi" oznaku da se pokuša ponovo pri sledećem upisu/zatvaranju.
+    console.warn("Neuspeo upis na server (" + key + "):", e.message);
+  });
+}
+
+// Zakazuje slanje sa malim odlaganjem; više brzih izmena istog ključa se stapa.
+function zakazi(key, tip) {
+  prljavi[key] = tip;
+  clearTimeout(cekaju[key]);
+  cekaju[key] = setTimeout(function () { posalji(key); }, 600);
+}
+
+// Čita string vrednost ključa iz keša (mirror localStorage.getItem).
+function getStavka(key) {
+  return kes.hasOwnProperty(key) ? kes[key] : null;
+}
+
+// Upisuje string vrednost: keš + lokalni backup + zakazan upis na server.
+function setStavka(key, str) {
+  kes[key] = str;
+  try { localStorage.setItem(key, str); } catch (e) {}
+  zakazi(key, "upsert");
+}
+
+// Briše ključ: keš + lokalni backup + zakazano brisanje na serveru.
+function delStavka(key) {
+  delete kes[key];
+  try { localStorage.removeItem(key); } catch (e) {}
+  zakazi(key, "delete");
+}
+
+// Učitava sve redove sa servera u keš. Poziva se jednom pri pokretanju.
+function ucitajSaServera() {
+  return fetch(SUPABASE_TABELA + "?select=key,value", { headers: supaZaglavlja() })
+    .then(function (r) {
+      if (!r.ok) throw new Error("Supabase " + r.status);
+      return r.json();
+    })
+    .then(function (redovi) {
+      kes = {};
+      redovi.forEach(function (red) { kes[red.key] = JSON.stringify(red.value); });
+    });
+}
+
+// Prvi put: ako server nema neki ključ a postoji lokalno (stara localStorage
+// verzija), prebaci ga na server da se ništa ne izgubi.
+function migracijaIzLokala() {
+  var poslovi = [];
+  [KLJUC_PODACI, KLJUC_TAJMER, KLJUC_KILAZA].forEach(function (key) {
+    if (!kes.hasOwnProperty(key)) {
+      var lok = localStorage.getItem(key);
+      if (lok !== null) {
+        kes[key] = lok;
+        prljavi[key] = "upsert";
+        poslovi.push(posalji(key));
+      }
+    }
+  });
+  return Promise.all(poslovi);
+}
+
+// Bootstrap koji app.js zove pre prvog rendera.
+function ucitajSveIzBaze() {
+  return ucitajSaServera().then(migracijaIzLokala);
+}
+
+// Pri zatvaranju/skrivanju stranice pošalji sve nesnimljene izmene odmah.
+function flushSve() {
+  Object.keys(prljavi).forEach(function (k) { posalji(k, true); });
+}
+window.addEventListener("pagehide", flushSve);
+document.addEventListener("visibilitychange", function () {
+  if (document.visibilityState === "hidden") flushSve();
+});
+
+/* ===================== DNEVNI PODACI ===================== */
 
 // Učitava ceo objekat sa svim danima. Ako ništa nije sačuvano, vraća prazan objekat.
 function ucitajSvePodatke() {
-  var sirovo = localStorage.getItem(KLJUC_PODACI);
+  var sirovo = getStavka(KLJUC_PODACI);
   if (sirovo === null) {
     return {};
   }
   return JSON.parse(sirovo);
 }
 
-// Snima ceo objekat sa svim danima nazad u localStorage.
+// Snima ceo objekat sa svim danima.
 function sacuvajSvePodatke(podaci) {
-  localStorage.setItem(KLJUC_PODACI, JSON.stringify(podaci));
+  setStavka(KLJUC_PODACI, JSON.stringify(podaci));
 }
 
 // Vraća podatke za jedan dan. Ako dan ne postoji, vraća prazan dan
-// (ne upisuje ga u storage — upis se dešava tek kad se nešto stvarno doda).
+// (ne upisuje ga — upis se dešava tek kad se nešto stvarno doda).
 function ucitajDan(datum) {
   var podaci = ucitajSvePodatke();
   if (podaci[datum]) {
@@ -62,7 +195,6 @@ function sacuvajDan(datum, dan) {
 }
 
 // Da li za dati datum postoji sačuvan plan (bar jedna stavka ili obaveza)?
-// Koristi se u Istoriji da se razlikuje "bez plana" od "plan postoji".
 function danImaPlan(datum) {
   var podaci = ucitajSvePodatke();
   var dan = podaci[datum];
@@ -70,9 +202,11 @@ function danImaPlan(datum) {
   return dan.items.length > 0 || (dan.obaveze && dan.obaveze.length > 0);
 }
 
+/* ===================== AKTIVNI TAJMER ===================== */
+
 // Vraća aktivni tajmer ili null ako nijedan tajmer ne radi.
 function ucitajAktivniTajmer() {
-  var sirovo = localStorage.getItem(KLJUC_TAJMER);
+  var sirovo = getStavka(KLJUC_TAJMER);
   if (sirovo === null) {
     return null;
   }
@@ -81,24 +215,19 @@ function ucitajAktivniTajmer() {
 
 // Snima aktivni tajmer.
 function sacuvajAktivniTajmer(tajmer) {
-  localStorage.setItem(KLJUC_TAJMER, JSON.stringify(tajmer));
+  setStavka(KLJUC_TAJMER, JSON.stringify(tajmer));
 }
 
 // Briše aktivni tajmer (poziva se kad se tajmer zaustavi).
 function obrisiAktivniTajmer() {
-  localStorage.removeItem(KLJUC_TAJMER);
+  delStavka(KLJUC_TAJMER);
 }
 
-/*
- * Kilaža (praćenje težine) — poseban ključ, nezavisan od dnevnog plana:
- *   { unosi: { "YYYY-MM-DD": kg }, cilj: number | null }
- * Jedan unos po danu; cilj je opciona ciljna težina (null = nije postavljen).
- */
-var KLJUC_KILAZA = "fokus-kilaza";
+/* ===================== KILAŽA ===================== */
 
 // Učitava ceo objekat kilaže; ako ništa nije sačuvano, vraća prazan.
 function ucitajKilazu() {
-  var sirovo = localStorage.getItem(KLJUC_KILAZA);
+  var sirovo = getStavka(KLJUC_KILAZA);
   if (sirovo === null) {
     return { unosi: {}, cilj: null };
   }
@@ -110,5 +239,5 @@ function ucitajKilazu() {
 
 // Snima ceo objekat kilaže.
 function sacuvajKilazu(kilaza) {
-  localStorage.setItem(KLJUC_KILAZA, JSON.stringify(kilaza));
+  setStavka(KLJUC_KILAZA, JSON.stringify(kilaza));
 }

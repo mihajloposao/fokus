@@ -1648,4 +1648,25 @@ function init() {
   prikaziSekciju("danas");
 }
 
-document.addEventListener("DOMContentLoaded", init);
+// Pokretanje: prvo se podaci učitaju sa servera (Supabase) u memorijski keš,
+// pa tek onda kreće aplikacija — tako sve sinhrone funkcije rade nad podacima
+// koji su već tu. Bez mreže: prikaži poruku umesto praznog ekrana.
+function pokreniAplikaciju() {
+  var ekran = document.getElementById("ucitavanje");
+  ucitajSveIzBaze().then(function () {
+    if (ekran) ekran.hidden = true;
+    init();
+  }).catch(function (e) {
+    console.error("Ne mogu da učitam podatke sa servera:", e);
+    if (ekran) {
+      ekran.innerHTML =
+        '<div class="ucit-poruka">' +
+          "<strong>Nema veze sa serverom</strong>" +
+          "<p>Proveri internet konekciju pa pokušaj ponovo.</p>" +
+          '<button onclick="location.reload()">Pokušaj ponovo</button>' +
+        "</div>";
+    }
+  });
+}
+
+document.addEventListener("DOMContentLoaded", pokreniAplikaciju);

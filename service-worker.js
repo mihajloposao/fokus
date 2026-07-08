@@ -9,7 +9,7 @@
  * KES_NAZIV (npr. "fokus-v2") da bi korisnici dobili novu verziju.
  */
 
-var KES_NAZIV = "fokus-v15";
+var KES_NAZIV = "fokus-v16";
 
 var FAJLOVI = [
   "./",
@@ -48,11 +48,16 @@ self.addEventListener("activate", function (event) {
   self.clients.claim();
 });
 
-// Svaki zahtev: prvo iz keša, ako nema — sa mreže.
+// Keširamo samo app shell (isti origin, GET zahtevi). Pozivi ka Supabase-u
+// (drugi origin, POST/DELETE) idu direktno na mrežu, bez mešanja SW-a.
 self.addEventListener("fetch", function (event) {
+  var zahtev = event.request;
+  if (zahtev.method !== "GET" || new URL(zahtev.url).origin !== self.location.origin) {
+    return;
+  }
   event.respondWith(
-    caches.match(event.request).then(function (odgovor) {
-      return odgovor || fetch(event.request);
+    caches.match(zahtev).then(function (odgovor) {
+      return odgovor || fetch(zahtev);
     })
   );
 });
