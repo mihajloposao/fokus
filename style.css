@@ -1194,7 +1194,7 @@ input:focus {
   gap: 3px;
   font-size: 11px;
   color: var(--ink-blago);
-  padding: 4px 20px;
+  padding: 4px 14px; /* uže da 4 taba stanu i na uskim telefonima */
 }
 
 .nav-dugme svg {
@@ -1359,6 +1359,253 @@ input:focus {
   color: var(--tekst-blago);
   margin-top: 8px;
   text-align: right;
+}
+
+/* ===================== KILAŽA ===================== */
+
+.kilaza-zaglavlje {
+  align-items: flex-start;
+}
+
+/* Velika trenutna težina */
+.kilaza-veliko {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.kilaza-veliko b {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.kilaza-veliko em {
+  font-size: 16px;
+  color: var(--ink-blago);
+  font-style: normal;
+}
+
+.kilaza-delta {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+
+.kilaza-delta.dole { color: #3d8f6f; }
+.kilaza-delta.gore { color: #b25b5b; }
+
+/* Prekidač opsega grafika (7d / 30d / sve) */
+.kilaza-opseg {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.kilaza-opseg button {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--linija);
+  background: var(--paper-svetlo);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-blago);
+}
+
+.kilaza-opseg button.on {
+  background: var(--ink);
+  color: var(--paper-svetlo);
+  border-color: var(--ink);
+}
+
+/* Traka napretka ka cilju */
+.kilaza-cilj-red {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  margin-top: 13px;
+  padding: 10px 13px;
+  background: #3d8f6f12;
+  border: 1px solid #3d8f6f33;
+  border-radius: 12px;
+  font-size: 12.5px;
+  color: var(--ink);
+  text-align: left;
+}
+
+.kilaza-cilj-oznaka {
+  font-weight: 700;
+  color: #3d8f6f;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+.kilaza-cilj-traka {
+  flex: 1;
+  height: 6px;
+  background: #dfe9e2;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.kilaza-cilj-traka span {
+  display: block;
+  height: 100%;
+  background: #3d8f6f;
+  border-radius: 3px;
+}
+
+.kilaza-cilj-preostalo {
+  color: #6b6455;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.kilaza-cilj-postavi {
+  width: 100%;
+  margin-top: 13px;
+  padding: 11px;
+  border: 1.5px dashed var(--ink-blago);
+  border-radius: 12px;
+  color: var(--ink-blago);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Grafik */
+.kilaza-grafik {
+  width: 100%;
+  display: block;
+  margin-top: 14px;
+}
+
+.kg-grid { stroke: var(--linija); stroke-width: 1; }
+.kg-yl, .kg-xl { fill: var(--ink-blago); font-size: 9px; }
+.kg-linija { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.kg-prosek { fill: none; stroke: var(--ink-blago); stroke-width: 1.4; stroke-dasharray: 1 4; stroke-linecap: round; opacity: 0.9; }
+.kg-tacka { fill: var(--paper-svetlo); stroke: var(--ink); stroke-width: 2.5; }
+.kg-cilj { stroke: #3d8f6f; stroke-width: 1.5; stroke-dasharray: 4 3; }
+.kg-cilj-l { fill: #3d8f6f; font-size: 9px; font-weight: 600; }
+
+/* Prazno / "jedan unos" stanje umesto grafika */
+.kilaza-prazno {
+  margin-top: 14px;
+  padding: 22px 16px;
+  background: var(--paper-svetlo);
+  border: 1px dashed var(--linija);
+  border-radius: 16px;
+  text-align: center;
+}
+
+.kilaza-prazno strong { font-size: 15px; display: block; }
+.kilaza-prazno p { font-size: 12.5px; color: var(--ink-blago); margin-top: 4px; line-height: 1.4; }
+
+/* Tri statističke kartice */
+.kilaza-stat-red {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.kilaza-stat {
+  background: var(--paper-svetlo);
+  border: 1px solid var(--linija);
+  border-radius: 12px;
+  padding: 11px 12px;
+}
+
+.kilaza-stat b {
+  font-size: 19px;
+  display: block;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.kilaza-stat small {
+  font-size: 10px;
+  color: var(--ink-blago);
+  letter-spacing: 0.3px;
+}
+
+.kilaza-stat.tamna {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper-svetlo);
+}
+
+.kilaza-stat.tamna small { color: #a8b0c6; }
+
+/* Unos današnje kilaže (stepper + čuvanje) */
+.kilaza-step-wrap {
+  margin-top: 16px;
+  padding: 14px;
+  background: var(--paper-svetlo);
+  border: 1px solid var(--linija);
+  border-radius: 16px;
+}
+
+.kilaza-step-wrap .cap {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: var(--ink-blago);
+  margin-bottom: 10px;
+}
+
+.kilaza-stepper {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--linija);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--paper);
+}
+
+.kilaza-stepper button {
+  width: 52px;
+  font-size: 24px;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+.kilaza-stepper .val {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 0;
+  border-left: 1px solid var(--linija);
+  border-right: 1px solid var(--linija);
+  background: var(--paper-svetlo);
+}
+
+.kilaza-stepper .val b {
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.kilaza-stepper .val small {
+  font-size: 13px;
+  color: var(--ink-blago);
+}
+
+.kilaza-sacuvaj {
+  width: 100%;
+  margin-top: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--paper-svetlo);
+  font-size: 15px;
+  font-weight: 600;
 }
 
 /* ===================== DESKTOP ===================== */

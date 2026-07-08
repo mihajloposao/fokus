@@ -33,7 +33,10 @@ var stanje = {
   mesecOffset: 0,             // 0 = tekući mesec u Istoriji, -1 = prethodni...
   formaDogadjajOtvorena: false, // da li je otvorena forma za novi fiksni događaj
   novaBoja: PALETA[0],        // izabrana boja za novu stavku na Plan ekranu
-  ocenaOtvorena: false        // da li je editor ocene dana raširen (Detalj ekran)
+  ocenaOtvorena: false,       // da li je editor ocene dana raširen (Detalj ekran)
+  kilazaOpseg: "30d",         // opseg grafika kilaže: 7d | 30d | sve
+  kilazaDraft: null,          // vrednost u steperu (kg) pre čuvanja; null = tek otvoreno
+  kilazaSacuvano: false       // prolazno: "Sačuvano ✓" posle upisa
 };
 
 /* ===================== DATUMI ===================== */
@@ -282,6 +285,13 @@ function prikaziSekciju(naziv) {
     sekcije[i].hidden = sekcije[i].id !== "sekcija-" + naziv;
   }
 
+  // Svaki ulazak na Kilažu kreće sa skupljenim/neizmenjenim steperom i
+  // opsegom po izboru — draft se re-inicijalizuje iz podataka pri renderu.
+  if (naziv === "kilaza") {
+    stanje.kilazaDraft = null;
+    stanje.kilazaSacuvano = false;
+  }
+
   // Bottom nav: "detalj" nije tab, pa tada ostaje označena Istorija.
   var navTab = naziv === "detalj" ? "istorija" : naziv;
   var dugmad = document.querySelectorAll(".nav-dugme");
@@ -298,6 +308,7 @@ function osveziAktivnuSekciju() {
   if (stanje.sekcija === "plan") renderPlan();
   if (stanje.sekcija === "istorija") renderIstorija();
   if (stanje.sekcija === "detalj") renderDetalj();
+  if (stanje.sekcija === "kilaza") renderKilaza();
 }
 
 // Kači "click" handler na sve elemente koji odgovaraju selektoru unutar
@@ -1087,6 +1098,256 @@ function renderCiljVsOdradjeno(datum, sada) {
   }
 
   kontejner.innerHTML = html === "" ? '<p class="prazno">Nema stavki za ovaj dan.</p>' : html;
+}
+
+/* ===================== RENDER: KILAŽA ===================== */
+
+// Prolazni tajmer za "Sačuvano ✓" poruku posle upisa kilaže.
+var kilazaTajmer = null;
+
+// Kilaža → "72,4" (srpski decimalni zapis).
+function formatKg(v) {
+  return v.toFixed(1).replace(".", ",");
+}
+
+// "2026-07-04" → "4. jul" (za oznake na grafiku i naslov stepera).
+function kratakDatum(kljuc) {
+  var d = datumIzKljuca(kljuc);
+  return d.getDate() + ". " + MESECI[d.getMonth()];
+}
+
+// Svi unosi kilaže kao niz [{datum, kg}], rastuće po datumu.
+function kilazaNiz() {
+  var k = ucitajKilazu();
+  return Object.keys(k.unosi).sort().map(function (d) {
+    return { datum: d, kg: k.unosi[d] };
+  });
+}
+
+// Unosi vidljivi u datom opsegu (7d / 30d / sve), po kalendarskom prozoru.
+function kilazaVidljivi(opseg, svi) {
+  if (opseg === "sve") return svi;
+  var dana = opseg === "7d" ? 7 : 30;
+  var granica = pomeriDatum(danasKey(), -(dana - 1));
+  return svi.filter(function (u) { return u.datum >= granica; });
+}
+
+// Upisuje kilažu za dati dan (jedan unos po danu; ponovni upis je izmena).
+function upisiKilazu(datum, kg) {
+  var k = ucitajKilazu();
+  k.unosi[datum] = kg;
+  sacuvajKilazu(k);
+}
+
+// Postavlja (ili uklanja, kg = null) ciljnu kilažu.
+function postaviCiljKilaze(kg) {
+  var k = ucitajKilazu();
+  k.cilj = kg;
+  sacuvajKilazu(k);
+}
+
+// Zaokruži na 0,1 kg i ograniči na razuman opseg.
+function clampKilaza(v) {
+  return Math.round(Math.min(300, Math.max(30, v)) * 10) / 10;
+}
+
+// Dugme opsega grafika (7d/30d/sve) sa oznakom aktivnog.
+function opsegDugme(o) {
+  return '<button data-opseg="' + o + '"' + (stanje.kilazaOpseg === o ? ' class="on"' : "") +
+    ">" + o + "</button>";
+}
+
+// Crta SVG grafik kilaže iz vidljivih unosa: površina + linija težine,
+// tanka isprekidana linija 7-dnevnog proseka, ciljna linija i poslednja tačka.
+function buildKilazaChart(vidljivi, cilj) {
+  var W = 340, H = 172, L = 16, RG = 328, T = 18, B = 148;
+  var n = vidljivi.length;
+  var vr = vidljivi.map(function (u) { return u.kg; });
+
+  var minV = Math.min.apply(null, vr);
+  var maxV = Math.max.apply(null, vr);
+  var dmin = (cilj !== null ? Math.min(minV, cilj) : minV) - 0.3;
+  var dmax = (cilj !== null ? Math.max(maxV, cilj) : maxV) + 0.3;
+
+  function x(i) { return L + (RG - L) * (n === 1 ? 0.5 : i / (n - 1)); }
+  function y(v) { return B - (B - T) * ((v - dmin) / (dmax - dmin)); }
+
+  // 7-dnevni klizni prosek (prozor po indeksu vidljivog niza).
+  var prosek = vr.map(function (_, i) {
+    var w = vr.slice(Math.max(0, i - 6), i + 1);
+    return w.reduce(function (a, b) { return a + b; }, 0) / w.length;
+  });
+
+  var linija = vr.map(function (v, i) { return x(i).toFixed(1) + "," + y(v).toFixed(1); }).join(" ");
+  var prosekLin = prosek.map(function (v, i) { return x(i).toFixed(1) + "," + y(v).toFixed(1); }).join(" ");
+  var povrsina = "M " + x(0).toFixed(1) + "," + B + " L " +
+    vr.map(function (v, i) { return x(i).toFixed(1) + "," + y(v).toFixed(1); }).join(" L ") +
+    " L " + x(n - 1).toFixed(1) + "," + B + " Z";
+
+  var svg = '<svg class="kilaza-grafik" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Grafik kilaže">';
+  for (var k = 0; k < 4; k++) {
+    var yy = T + (B - T) * k / 3;
+    var val = dmax - (dmax - dmin) * k / 3;
+    svg += '<line class="kg-grid" x1="' + L + '" y1="' + yy.toFixed(1) + '" x2="' + RG + '" y2="' + yy.toFixed(1) + '"></line>';
+    svg += '<text class="kg-yl" x="0" y="' + (yy + 3).toFixed(1) + '">' + formatKg(val) + "</text>";
+  }
+  svg += '<path d="' + povrsina + '" fill="#232f4b" fill-opacity="0.08"></path>';
+  svg += '<polyline class="kg-prosek" points="' + prosekLin + '"></polyline>';
+  if (cilj !== null) {
+    var gy = y(cilj);
+    svg += '<line class="kg-cilj" x1="' + L + '" y1="' + gy.toFixed(1) + '" x2="' + (RG - 44) + '" y2="' + gy.toFixed(1) + '"></line>';
+    svg += '<text class="kg-cilj-l" x="' + RG + '" y="' + (gy + 3).toFixed(1) + '" text-anchor="end">cilj ' + formatKg(cilj) + "</text>";
+  }
+  svg += '<polyline class="kg-linija" points="' + linija + '"></polyline>';
+  svg += '<circle class="kg-tacka" cx="' + x(n - 1).toFixed(1) + '" cy="' + y(vr[n - 1]).toFixed(1) + '" r="4"></circle>';
+
+  var idxs = [0, Math.floor((n - 1) / 2), n - 1];
+  var anchors = ["start", "middle", "end"];
+  for (var m = 0; m < 3; m++) {
+    svg += '<text class="kg-xl" x="' + x(idxs[m]).toFixed(1) + '" y="167" text-anchor="' + anchors[m] + '">' +
+      kratakDatum(vidljivi[idxs[m]].datum) + "</text>";
+  }
+  svg += "</svg>";
+  return svg;
+}
+
+// Ceo Kilaža ekran: zaglavlje sa težinom i opsegom, cilj-traka, grafik,
+// statistika i stepper za unos današnje kilaže. Prazna i "jedan unos" stanja
+// su posebno obrađena.
+function renderKilaza() {
+  var kontejner = document.getElementById("kilaza-sadrzaj");
+  var kilaza = ucitajKilazu();
+  var cilj = kilaza.cilj;
+  var svi = kilazaNiz();
+
+  // Inicijalizuj stepper: današnji unos → poslednji → 70,0 kg.
+  if (stanje.kilazaDraft === null) {
+    if (kilaza.unosi[danasKey()] !== undefined) stanje.kilazaDraft = kilaza.unosi[danasKey()];
+    else if (svi.length) stanje.kilazaDraft = svi[svi.length - 1].kg;
+    else stanje.kilazaDraft = 70.0;
+  }
+
+  var vidljivi = kilazaVidljivi(stanje.kilazaOpseg, svi);
+  if (vidljivi.length < 2 && svi.length >= 2) vidljivi = svi; // izbegni grafik sa jednom tačkom
+  var poslednja = svi.length ? svi[svi.length - 1].kg : stanje.kilazaDraft;
+
+  var html = "";
+
+  // ---- Zaglavlje: težina + delta + prekidač opsega ----
+  html += '<header class="ekran-zaglavlje kilaza-zaglavlje"><div>' +
+    '<p class="nadnaslov">KILAŽA</p>' +
+    '<div class="kilaza-veliko"><b>' + formatKg(poslednja) + "</b><em>kg</em></div>";
+  if (vidljivi.length >= 2) {
+    var delta = poslednja - vidljivi[0].kg;
+    html += '<p class="kilaza-delta ' + (delta <= 0 ? "dole" : "gore") + '">' +
+      (delta <= 0 ? "▼ " : "▲ ") + formatKg(Math.abs(delta)) + " kg za " + vidljivi.length + " dana</p>";
+  }
+  html += "</div>";
+  if (svi.length >= 2) {
+    html += '<div class="kilaza-opseg">' + opsegDugme("7d") + opsegDugme("30d") + opsegDugme("sve") + "</div>";
+  }
+  html += "</header>";
+
+  // ---- Cilj: traka napretka ili poziv da se postavi ----
+  if (svi.length >= 1) {
+    if (cilj !== null) {
+      var start = svi[0].kg;
+      var pct = start === cilj ? 100 : Math.max(0, Math.min(100, ((start - poslednja) / (start - cilj)) * 100));
+      var remain = poslednja - cilj;
+      html += '<button class="kilaza-cilj-red" title="Promeni cilj">' +
+        '<span class="kilaza-cilj-oznaka">CILJ ' + formatKg(cilj) + " kg</span>" +
+        '<span class="kilaza-cilj-traka"><span style="width:' + pct.toFixed(0) + '%"></span></span>' +
+        '<span class="kilaza-cilj-preostalo">' +
+          (remain <= 0 ? "cilj postignut" : "još " + formatKg(remain) + " kg") +
+        "</span>" +
+      "</button>";
+    } else {
+      html += '<button class="kilaza-cilj-postavi">+ Postavi cilj kilaže</button>';
+    }
+  }
+
+  // ---- Grafik / prazna stanja ----
+  if (vidljivi.length >= 2) {
+    html += buildKilazaChart(vidljivi, cilj);
+  } else if (svi.length === 0) {
+    html += '<div class="kilaza-prazno"><strong>Još nema unosa kilaže</strong>' +
+      "<p>Unesi svoju težinu ispod da počneš da pratiš trend kroz vreme.</p></div>";
+  } else {
+    html += '<div class="kilaza-prazno"><strong>Samo jedan unos do sada</strong>' +
+      "<p>Grafik se pojavljuje kad uneseš kilažu za bar dva dana.</p></div>";
+  }
+
+  // ---- Statistika ----
+  if (svi.length >= 1) {
+    var sveKg = svi.map(function (u) { return u.kg; });
+    var minSvi = Math.min.apply(null, sveKg);
+    var prosek = vidljivi.reduce(function (a, u) { return a + u.kg; }, 0) / vidljivi.length;
+    var prosekLabel = "prosek " + stanje.kilazaOpseg;
+    html += '<div class="kilaza-stat-red">' +
+      '<div class="kilaza-stat tamna"><b>' + formatKg(poslednja) + '<small> kg</small></b><small>trenutna</small></div>' +
+      '<div class="kilaza-stat"><b>' + formatKg(prosek) + "</b><small>" + prosekLabel + "</small></div>" +
+      '<div class="kilaza-stat"><b>' + formatKg(minSvi) + "</b><small>najniža</small></div>" +
+    "</div>";
+  }
+
+  // ---- Stepper: unos današnje kilaže ----
+  var danasImaUnos = kilaza.unosi[danasKey()] !== undefined;
+  html += '<div class="kilaza-step-wrap">' +
+    '<p class="cap">DANAŠNJA KILAŽA · ' + kratakDatum(danasKey()).toUpperCase() + "</p>" +
+    '<div class="kilaza-stepper">' +
+      '<button class="kilaza-korak" data-korak="-1">−</button>' +
+      '<span class="val"><b>' + formatKg(stanje.kilazaDraft) + "</b><small>kg</small></span>" +
+      '<button class="kilaza-korak" data-korak="1">+</button>' +
+    "</div>" +
+    '<button class="kilaza-sacuvaj"' + (stanje.kilazaSacuvano ? ' style="background:#3d8f6f"' : "") + ">" +
+      (stanje.kilazaSacuvano ? "Sačuvano ✓" : (danasImaUnos ? "Ažuriraj za danas" : "Sačuvaj za danas")) +
+    "</button>" +
+  "</div>";
+
+  kontejner.innerHTML = html;
+
+  // ---- Interakcije ----
+  poveziKlik(kontejner, ".kilaza-opseg button", function () {
+    stanje.kilazaOpseg = this.dataset.opseg;
+    renderKilaza();
+  });
+  poveziKlik(kontejner, ".kilaza-korak", function () {
+    stanje.kilazaDraft = clampKilaza(stanje.kilazaDraft + Number(this.dataset.korak) * 0.1);
+    stanje.kilazaSacuvano = false;
+    renderKilaza();
+  });
+  poveziKlik(kontejner, ".kilaza-sacuvaj", function () {
+    upisiKilazu(danasKey(), stanje.kilazaDraft);
+    stanje.kilazaSacuvano = true;
+    renderKilaza();
+    clearTimeout(kilazaTajmer);
+    kilazaTajmer = setTimeout(function () {
+      stanje.kilazaSacuvano = false;
+      if (stanje.sekcija === "kilaza") renderKilaza();
+    }, 1600);
+  });
+  var ciljEl = kontejner.querySelector(".kilaza-cilj-red, .kilaza-cilj-postavi");
+  if (ciljEl) ciljEl.addEventListener("click", klikKilazaCilj);
+}
+
+// Postavljanje/menjanje ciljne kilaže (prompt; prazan unos uklanja cilj).
+function klikKilazaCilj() {
+  var k = ucitajKilazu();
+  var unos = prompt("Ciljna kilaža (kg):", k.cilj !== null ? formatKg(k.cilj) : "");
+  if (unos === null) return;
+  unos = unos.trim().replace(",", ".");
+  if (unos === "") {
+    postaviCiljKilaze(null);
+    renderKilaza();
+    return;
+  }
+  var v = parseFloat(unos);
+  if (isNaN(v) || v < 30 || v > 300) {
+    alert("Unesi broj između 30 i 300 kg.");
+    return;
+  }
+  postaviCiljKilaze(Math.round(v * 10) / 10);
+  renderKilaza();
 }
 
 /* ===================== AKCIJE KORISNIKA ===================== */

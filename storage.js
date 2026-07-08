@@ -88,3 +88,27 @@ function sacuvajAktivniTajmer(tajmer) {
 function obrisiAktivniTajmer() {
   localStorage.removeItem(KLJUC_TAJMER);
 }
+
+/*
+ * Kilaža (praćenje težine) — poseban ključ, nezavisan od dnevnog plana:
+ *   { unosi: { "YYYY-MM-DD": kg }, cilj: number | null }
+ * Jedan unos po danu; cilj je opciona ciljna težina (null = nije postavljen).
+ */
+var KLJUC_KILAZA = "fokus-kilaza";
+
+// Učitava ceo objekat kilaže; ako ništa nije sačuvano, vraća prazan.
+function ucitajKilazu() {
+  var sirovo = localStorage.getItem(KLJUC_KILAZA);
+  if (sirovo === null) {
+    return { unosi: {}, cilj: null };
+  }
+  var o = JSON.parse(sirovo);
+  if (!o.unosi) o.unosi = {};
+  if (o.cilj === undefined) o.cilj = null;
+  return o;
+}
+
+// Snima ceo objekat kilaže.
+function sacuvajKilazu(kilaza) {
+  localStorage.setItem(KLJUC_KILAZA, JSON.stringify(kilaza));
+}
