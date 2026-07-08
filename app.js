@@ -166,8 +166,9 @@ function ukupnoCiljaDana(datum) {
   return ukupno;
 }
 
-// Broj stavki dana koje su dostigle svoj cilj.
-function brojZavrsenihStavki(datum, sada) {
+// Broj završenih jedinica dana: stavke koje su dostigle cilj + čekirane obaveze.
+// (Čekirana obaveza računa se kao ispunjena stavka.)
+function brojZavrsenih(datum, sada) {
   var dan = ucitajDan(datum);
   var broj = 0;
   for (var i = 0; i < dan.items.length; i++) {
@@ -175,37 +176,51 @@ function brojZavrsenihStavki(datum, sada) {
       broj++;
     }
   }
+  var obaveze = dan.obaveze || [];
+  for (var j = 0; j < obaveze.length; j++) {
+    if (obaveze[j].checkedAt) broj++;
+  }
   return broj;
 }
 
+// Ukupan broj jedinica dana: stavke sa ciljem + obaveze.
+function brojJedinica(datum) {
+  var dan = ucitajDan(datum);
+  return dan.items.length + (dan.obaveze ? dan.obaveze.length : 0);
+}
+
 // Status dana za kalendar u Istoriji:
-//   "ispunjen"  — plan postoji i SVE stavke su dostigle cilj
-//   "delimican" — plan postoji, bar nešto je rađeno, ali nisu sve stavke na cilju
-//   "bez-plana" — za taj dan nema plana (ili plan bez ijedne stavke)
+//   "ispunjen"  — plan postoji i SVE jedinice (stavke + obaveze) su gotove
+//   "delimican" — plan postoji, bar nešto je gotovo, ali ne sve
+//   "bez-plana" — za taj dan nema plana (ni stavki ni obaveza)
 function statusDana(datum) {
   if (!danImaPlan(datum)) {
     return "bez-plana";
   }
   var sada = Date.now();
-  var dan = ucitajDan(datum);
-  if (brojZavrsenihStavki(datum, sada) === dan.items.length) {
+  if (brojZavrsenih(datum, sada) === brojJedinica(datum)) {
     return "ispunjen";
   }
   return "delimican";
 }
 
-// Procenat ispunjenja dana: prosek po stavkama od min(odrađeno/cilj, 1).
-// Višak preko cilja se ne računa preko 100% da jedna stavka ne maskira druge.
+// Procenat ispunjenja dana: prosek po jedinicama. Stavka doprinosi
+// min(odrađeno/cilj, 1), a obaveza 1 (čekirana) ili 0 (nečekirana).
 function procenatDana(datum) {
+  var uk = brojJedinica(datum);
+  if (uk === 0) return 0;
   var dan = ucitajDan(datum);
-  if (dan.items.length === 0) return 0;
   var sada = Date.now();
   var zbir = 0;
   for (var i = 0; i < dan.items.length; i++) {
     var odnos = minutiStavke(datum, dan.items[i].id, sada) / dan.items[i].ciljMinuta;
     zbir += Math.min(odnos, 1);
   }
-  return (zbir / dan.items.length) * 100;
+  var obaveze = dan.obaveze || [];
+  for (var j = 0; j < obaveze.length; j++) {
+    if (obaveze[j].checkedAt) zbir += 1;
+  }
+  return (zbir / uk) * 100;
 }
 
 // Trenutni niz dana zaredom u planu (streak).
@@ -387,24 +402,26 @@ function renderTajmerPanel(sada) {
   pauzaBtn.title = radi ? "Pauziraj" : "Nastavi";
 }
 
-// Lista stavki iz današnjeg plana, svaka sa play/pauza dugmetom i napretkom.
+// Objedinjena lista dana (dizajn "obaveze" 2a): stavke sa ciljem (▶) i obaveze
+// (checkbox) u jednoj listi — nedovršeno gore, završeno prigušeno ispod
+// razdelnika "ZAVRŠENO". Čekiranje obaveze pamti tačan trenutak.
 function renderListuStavkiDanas(datum, sada) {
   var dan = ucitajDan(datum);
+  var obaveze = dan.obaveze || [];
   var tajmer = ucitajAktivniTajmer();
   var kontejner = document.getElementById("danas-stavke");
 
   document.getElementById("danas-brojac").textContent =
-    brojZavrsenihStavki(datum, sada) + " / " + dan.items.length;
+    brojZavrsenih(datum, sada) + " / " + brojJedinica(datum) + " završeno";
 
-  if (dan.items.length === 0) {
+  if (dan.items.length === 0 && obaveze.length === 0) {
     kontejner.innerHTML =
       '<p class="prazno">Nema plana za danas. Napravi ga na kartici <strong>Plan</strong>.</p>';
     return;
   }
 
-  var html = "";
-  for (var i = 0; i < dan.items.length; i++) {
-    var stavka = dan.items[i];
+  // HTML jednog reda stavke sa tajmerom (play/pauza + napredak).
+  function stavkaHtml(stavka) {
     var odradjeno = minutiStavke(datum, stavka.id, sada);
     var zavrsena = odradjeno >= stavka.ciljMinuta;
     var ovaRadi = tajmer !== null && tajmer.itemId === stavka.id && tajmer.start !== null;
@@ -418,8 +435,7 @@ function renderListuStavkiDanas(datum, sada) {
       desno = formatKratko(odradjeno) + "/" + formatKratko(stavka.ciljMinuta);
     }
 
-    html +=
-      '<div class="stavka-red' + (zavrsena ? " zavrsena" : "") + (ovaRadi ? " aktivna" : "") + '">' +
+    return '<div class="stavka-red' + (zavrsena ? " zavrsena" : "") + (ovaRadi ? " aktivna" : "") + '">' +
         '<button class="play-dugme" data-item="' + stavka.id + '" style="' +
           (ovaRadi ? "background:" + stavka.boja : "") + '" title="' + (ovaRadi ? "Pauziraj" : "Pokreni") + '">' +
           (ovaRadi ? "❙❙" : "▶") +
@@ -431,11 +447,43 @@ function renderListuStavkiDanas(datum, sada) {
         '<span class="stavka-vreme">' + desno + "</span>" +
       "</div>";
   }
-  kontejner.innerHTML = html;
 
-  // Play/pauza po stavci: pokreće tajmer za tu stavku, ili je pauzira ako već radi.
+  // HTML jednog reda obaveze (kvadratni checkbox + naziv + oznaka čekiranja).
+  function obavezaHtml(ob) {
+    var cekirana = !!ob.checkedAt;
+    return '<div class="stavka-red obaveza' + (cekirana ? " on" : "") + '">' +
+        '<button class="obaveza-box' + (cekirana ? " on" : "") + '" data-ob="' + ob.id +
+          '" title="' + (cekirana ? "Poništi" : "Čekiraj") + '">' + (cekirana ? "✓" : "") + "</button>" +
+        '<span class="stavka-naziv">' + escapeHtml(ob.naziv) + "</span>" +
+        '<span class="obaveza-tag' + (cekirana ? "" : " blago") + '">' +
+          (cekirana ? "✓ " + formatSatMinut(ob.checkedAt) : "čekiraj") +
+        "</span>" +
+      "</div>";
+  }
+
+  // Podeli u nedovršeno / završeno, čuvajući redosled (prvo stavke, pa obaveze).
+  var nedovrseno = "";
+  var zavrseno = "";
+  for (var i = 0; i < dan.items.length; i++) {
+    var s = dan.items[i];
+    if (minutiStavke(datum, s.id, sada) >= s.ciljMinuta) zavrseno += stavkaHtml(s);
+    else nedovrseno += stavkaHtml(s);
+  }
+  for (var j = 0; j < obaveze.length; j++) {
+    if (obaveze[j].checkedAt) zavrseno += obavezaHtml(obaveze[j]);
+    else nedovrseno += obavezaHtml(obaveze[j]);
+  }
+
+  kontejner.innerHTML = nedovrseno +
+    (zavrseno ? '<div class="lista-razdelnik">ZAVRŠENO</div>' + zavrseno : "");
+
+  // Play/pauza po stavci; klik na checkbox čekira/poništava obavezu.
   poveziKlik(kontejner, ".play-dugme", function () {
     klikPlayStavke(this.dataset.item);
+  });
+  poveziKlik(kontejner, ".obaveza-box", function () {
+    cekirajObavezu(datum, this.dataset.ob);
+    renderDanas();
   });
 }
 
@@ -456,6 +504,15 @@ function rasponTrake(datum, sada) {
   for (var j = 0; j < dan.sessions.length; j++) {
     min = Math.min(min, timestampUMinute(dan.sessions[j].start));
     max = Math.max(max, timestampUMinute(dan.sessions[j].end));
+  }
+  // Čekirane obaveze (markeri na traci) takođe šire raspon.
+  var obaveze = dan.obaveze || [];
+  for (var o = 0; o < obaveze.length; o++) {
+    if (obaveze[o].checkedAt) {
+      var t = timestampUMinute(obaveze[o].checkedAt);
+      min = Math.min(min, t);
+      max = Math.max(max, t);
+    }
   }
   var tajmer = ucitajAktivniTajmer();
   if (tajmer !== null && tajmer.datum === datum && tajmer.start !== null) {
@@ -486,8 +543,44 @@ function renderPlan() {
 
   renderFiksneDogadjaje(dan);
   renderPlanStavke(dan);
+  renderPlanObaveze(dan);
 
-  document.getElementById("plan-ukupno").textContent = formatTrajanje(ukupnoCiljaDana(datum));
+  // "Ukupno planirano": vreme ciljeva + broj obaveza (koje nemaju cilj).
+  var ukupnoTekst = formatTrajanje(ukupnoCiljaDana(datum));
+  var brObaveza = (dan.obaveze || []).length;
+  if (brObaveza > 0) {
+    ukupnoTekst += " + " + brObaveza + " " + recObaveze(brObaveza);
+  }
+  document.getElementById("plan-ukupno").textContent = ukupnoTekst;
+}
+
+// Srpska množina reči "obaveza": 1 → obaveza, 2–4 → obaveze, ostalo → obaveza.
+function recObaveze(n) {
+  var d = n % 10, dd = n % 100;
+  if (d >= 2 && d <= 4 && (dd < 12 || dd > 14)) return "obaveze";
+  return "obaveza";
+}
+
+// Lista obaveza na Plan ekranu + brisanje. (Dodavanje je preko forme u init-u.)
+function renderPlanObaveze(dan) {
+  var kontejner = document.getElementById("plan-obaveze");
+  var obaveze = dan.obaveze || [];
+  var html = "";
+
+  for (var i = 0; i < obaveze.length; i++) {
+    html +=
+      '<div class="stavka-red obaveza">' +
+        '<span class="obaveza-box"></span>' +
+        '<span class="stavka-naziv">' + escapeHtml(obaveze[i].naziv) + "</span>" +
+        '<button class="obrisi-dugme" data-id="' + obaveze[i].id + '" title="Obriši">×</button>' +
+      "</div>";
+  }
+  kontejner.innerHTML = html;
+
+  poveziKlik(kontejner, ".obrisi-dugme", function () {
+    obrisiObavezu(stanje.planDatum, this.dataset.id);
+    renderPlan();
+  });
 }
 
 // Lista fiksnih događaja + forma za dodavanje novog.
@@ -623,7 +716,7 @@ function renderPoslednjeDane() {
     if (danImaPlan(kljuc)) {
       var dan = ucitajDan(kljuc);
       var d = datumIzKljuca(kljuc);
-      var zavrseno = brojZavrsenihStavki(kljuc, sada);
+      var zavrseno = brojZavrsenih(kljuc, sada);
 
       // Mini trake: po jedna linija za svaku stavku, širina = odrađeno/cilj.
       var trake = "";
@@ -640,7 +733,7 @@ function renderPoslednjeDane() {
           '<span class="dan-broj">' + String(d.getDate()).padStart(2, "0") +
             "<small>" + DANI_KRATKO[d.getDay()] + "</small></span>" +
           '<span class="dan-info">' +
-            "<strong>" + zavrseno + " od " + dan.items.length + " stavke</strong>" +
+            "<strong>" + zavrseno + " od " + brojJedinica(kljuc) + " gotovo</strong>" +
             '<span class="mini-trake">' + trake + "</span>" +
           "</span>" +
           '<span class="dan-vreme">' + formatTrajanje(ukupnoMinutaDana(kljuc, sada)) + "</span>" +
@@ -906,6 +999,21 @@ function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
       "</div>";
   }
 
+  // Čekirane obaveze: tanka isprekidana linija preko cele širine u tačnom
+  // trenutku čekiranja (dizajn "obaveze" 2a).
+  var obaveze = dan.obaveze || [];
+  for (var o = 0; o < obaveze.length; o++) {
+    var ob = obaveze[o];
+    if (!ob.checkedAt) continue;
+    html +=
+      '<div class="vtraka-obaveza" style="top:' + vrh(timestampUMinute(ob.checkedAt)) + 'px">' +
+        '<span class="knob">✓</span>' +
+        '<span class="rule"></span>' +
+        '<span class="lab">' + escapeHtml(ob.naziv) +
+          " <small>" + formatSatMinut(ob.checkedAt) + "</small></span>" +
+      "</div>";
+  }
+
   if (zivo) {
     var sadaMin = timestampUMinute(sada);
     if (sadaMin >= raspon.od && sadaMin <= raspon.do) {
@@ -1102,6 +1210,53 @@ function obrisiStavku(itemId) {
   renderPlan();
 }
 
+// Dodaje novu obavezu (samo naziv — bez boje i bez cilja) u plan dana.
+function dodajObavezu(datum, naziv) {
+  var dan = ucitajDan(datum);
+  if (!dan.obaveze) dan.obaveze = [];
+  dan.obaveze.push({
+    id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+    naziv: naziv,
+    checkedAt: null
+  });
+  sacuvajDan(datum, dan);
+}
+
+// Briše obavezu iz dana.
+function obrisiObavezu(datum, id) {
+  var dan = ucitajDan(datum);
+  dan.obaveze = (dan.obaveze || []).filter(function (o) { return o.id !== id; });
+  sacuvajDan(datum, dan);
+}
+
+// Čekira/poništava obavezu: čekiranje pamti tačan trenutak (checkedAt), a
+// poništavanje ga vraća na null.
+function cekirajObavezu(datum, id) {
+  var dan = ucitajDan(datum);
+  var obaveze = dan.obaveze || [];
+  for (var i = 0; i < obaveze.length; i++) {
+    if (obaveze[i].id === id) {
+      obaveze[i].checkedAt = obaveze[i].checkedAt ? null : Date.now();
+      break;
+    }
+  }
+  dan.obaveze = obaveze;
+  sacuvajDan(datum, dan);
+}
+
+// Dodavanje obaveze iz forme na Plan ekranu.
+function dodajObavezuKlik() {
+  var input = document.getElementById("obaveza-naziv");
+  var naziv = input.value.trim();
+  if (naziv === "") {
+    alert("Upiši naziv obaveze.");
+    return;
+  }
+  dodajObavezu(stanje.planDatum, naziv);
+  input.value = "";
+  renderPlan();
+}
+
 // "Sačuvaj plan": izmene su već sačuvane pri svakom unosu, pa ovo dugme
 // samo potvrđuje korisniku i vodi ga na Danas ekran.
 function sacuvajPlanKlik() {
@@ -1155,6 +1310,12 @@ function init() {
   // Plan: nove stavke i čuvanje.
   document.getElementById("stavka-dodaj").addEventListener("click", dodajStavku);
   document.getElementById("dugme-sacuvaj-plan").addEventListener("click", sacuvajPlanKlik);
+
+  // Plan: nove obaveze (Enter u polju takođe dodaje).
+  document.getElementById("obaveza-dodaj").addEventListener("click", dodajObavezuKlik);
+  document.getElementById("obaveza-naziv").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") dodajObavezuKlik();
+  });
 
   // Istorija: listanje meseci.
   document.getElementById("mesec-nazad").addEventListener("click", function () {

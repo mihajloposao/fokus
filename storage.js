@@ -11,10 +11,14 @@
  *       fixedEvents: [ { naziv, od: "09:00", do: "10:30" } ],
  *       items:       [ { id, naziv, boja, ciljMinuta } ],
  *       sessions:    [ { itemId, start: timestamp_ms, end: timestamp_ms } ],
+ *       obaveze:     [ { id, naziv, checkedAt: timestamp_ms | null } ],
  *       ocena:       0,     // ocena dana 0–5 (opciono; 0 = neocenjeno)
  *       beleska:     ""     // beleška o danu (opciono)
  *     }
  *   }
+ *
+ * Obaveza je aktivnost bez tajmera — samo se čekira; checkedAt pamti tačan
+ * trenutak čekiranja (null = još nije urađena).
  *
  * Ključ "fokus-active-timer" — trenutno aktivan tajmer ili null:
  *   { itemId, datum, start: timestamp_ms | null, pausedElapsed: ms }
@@ -47,7 +51,7 @@ function ucitajDan(datum) {
   if (podaci[datum]) {
     return podaci[datum];
   }
-  return { fixedEvents: [], items: [], sessions: [] };
+  return { fixedEvents: [], items: [], sessions: [], obaveze: [] };
 }
 
 // Snima podatke za jedan dan.
@@ -57,11 +61,13 @@ function sacuvajDan(datum, dan) {
   sacuvajSvePodatke(podaci);
 }
 
-// Da li za dati datum postoji sačuvan plan (bar jedna stavka)?
+// Da li za dati datum postoji sačuvan plan (bar jedna stavka ili obaveza)?
 // Koristi se u Istoriji da se razlikuje "bez plana" od "plan postoji".
 function danImaPlan(datum) {
   var podaci = ucitajSvePodatke();
-  return !!(podaci[datum] && podaci[datum].items.length > 0);
+  var dan = podaci[datum];
+  if (!dan) return false;
+  return dan.items.length > 0 || (dan.obaveze && dan.obaveze.length > 0);
 }
 
 // Vraća aktivni tajmer ili null ako nijedan tajmer ne radi.

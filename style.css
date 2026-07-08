@@ -992,6 +992,149 @@ input:focus {
   font-variant-numeric: tabular-nums;
 }
 
+/* Čekirana obaveza na traci: tanka isprekidana linija preko cele širine */
+.vtraka-obaveza {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  transform: translateY(-50%);
+  z-index: 3;
+}
+
+.vtraka-obaveza .knob {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: -10px;
+  box-shadow: 0 0 0 3px var(--paper);
+}
+
+.vtraka-obaveza .rule {
+  flex: 1;
+  border-top: 1.5px dashed var(--ink-blago);
+  margin: 0 8px;
+  opacity: 0.55;
+}
+
+.vtraka-obaveza .lab {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  background: var(--paper);
+  padding-left: 6px;
+}
+
+.vtraka-obaveza .lab small {
+  color: var(--ink-blago);
+  font-weight: 500;
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===================== OBAVEZE (bez tajmera) ===================== */
+
+/* Kvadratni checkbox obaveze — u listi Danas je dugme, u Planu statični marker */
+.obaveza-box {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  border: 2px solid var(--ink-blago);
+  background: var(--paper);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: transparent;
+}
+
+.obaveza-box.on {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+/* Čekirana obaveza u listi: prigušena, precrtan naziv */
+.stavka-red.obaveza.on {
+  background: #f8f2e2;
+}
+
+.stavka-red.obaveza.on .stavka-naziv {
+  opacity: 0.7;
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-blago);
+}
+
+/* Oznaka desno u redu obaveze: "čekiraj" (bledo) ili "✓ 09:12" */
+.obaveza-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-blago);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.obaveza-tag.blago {
+  color: var(--tekst-blago);
+}
+
+/* Razdelnik "ZAVRŠENO" u objedinjenoj listi */
+.lista-razdelnik {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 2px 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--tekst-blago);
+}
+
+.lista-razdelnik::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--linija);
+}
+
+/* "NOVO" značka uz naslov sekcije OBAVEZE na Planu */
+.novo-oznaka {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--paper-svetlo);
+  background: var(--ink);
+  padding: 2px 6px;
+  border-radius: 5px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+/* Istaknuta forma (dodavanje obaveze) + njen hint red */
+.kartica-forma.istaknuta {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(35, 47, 75, 0.06);
+}
+
+.red-polja.izmedju {
+  justify-content: space-between;
+}
+
+.forma-hint {
+  font-size: 12px;
+  color: var(--tekst-blago);
+}
+
 /* "CILJ VS ODRAĐENO" — uporedne trake po stavci */
 .poredjenje-red {
   display: flex;
