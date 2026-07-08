@@ -1139,10 +1139,12 @@ function upisiKilazu(datum, kg) {
   sacuvajKilazu(k);
 }
 
-// Postavlja (ili uklanja, kg = null) ciljnu kilažu.
-function postaviCiljKilaze(kg) {
+// Postavlja (ili uklanja, kg = null) ciljnu kilažu. baza = trenutna težina u
+// trenutku postavljanja (određuje smer: mršavljenje ili gojenje).
+function postaviCiljKilaze(kg, baza) {
   var k = ucitajKilazu();
   k.cilj = kg;
+  k.ciljBaza = kg === null ? null : baza;
   sacuvajKilazu(k);
 }
 
@@ -1251,14 +1253,23 @@ function renderKilaza() {
   // ---- Cilj: traka napretka ili poziv da se postavi ----
   if (svi.length >= 1) {
     if (cilj !== null) {
-      var start = svi[0].kg;
-      var pct = start === cilj ? 100 : Math.max(0, Math.min(100, ((start - poslednja) / (start - cilj)) * 100));
-      var remain = poslednja - cilj;
+      // Bazna težina (kad je cilj postavljen) određuje smer. Za stare ciljeve
+      // bez zabeležene baze, uzmi prvi unos kao razuman početak.
+      var baza = kilaza.ciljBaza;
+      if (baza === null || baza === undefined) baza = svi.length ? svi[0].kg : poslednja;
+
+      var smerNanize = cilj < baza; // cilj ispod baze = mršavljenje, iznad = gojenje
+      var postignuto = smerNanize ? (poslednja <= cilj + 0.0001) : (poslednja >= cilj - 0.0001);
+      var preostalo = Math.abs(poslednja - cilj);
+      var pct = cilj === baza
+        ? (postignuto ? 100 : 0)
+        : Math.max(0, Math.min(100, ((poslednja - baza) / (cilj - baza)) * 100));
+
       html += '<button class="kilaza-cilj-red" title="Promeni cilj">' +
         '<span class="kilaza-cilj-oznaka">CILJ ' + formatKg(cilj) + " kg</span>" +
         '<span class="kilaza-cilj-traka"><span style="width:' + pct.toFixed(0) + '%"></span></span>' +
         '<span class="kilaza-cilj-preostalo">' +
-          (remain <= 0 ? "cilj postignut" : "još " + formatKg(remain) + " kg") +
+          (postignuto ? "cilj postignut" : "još " + formatKg(preostalo) + " kg") +
         "</span>" +
       "</button>";
     } else {
@@ -1388,7 +1399,10 @@ function klikKilazaCilj() {
     alert("Unesi broj između 30 i 300 kg.");
     return;
   }
-  postaviCiljKilaze(Math.round(v * 10) / 10);
+  // Bazna težina = poslednji unos (ili trenutna vrednost stepera ako još nema unosa).
+  var svi = kilazaNiz();
+  var baza = svi.length ? svi[svi.length - 1].kg : stanje.kilazaDraft;
+  postaviCiljKilaze(Math.round(v * 10) / 10, baza);
   renderKilaza();
 }
 

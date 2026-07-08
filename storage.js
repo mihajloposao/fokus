@@ -28,7 +28,9 @@
  * Ključ "fokus-active-timer" — trenutno aktivan tajmer ili null:
  *   { itemId, datum, start: timestamp_ms | null, pausedElapsed: ms }
  *
- * Ključ "fokus-kilaza" — { unosi: { "YYYY-MM-DD": kg }, cilj: number | null }
+ * Ključ "fokus-kilaza" — { unosi: { "YYYY-MM-DD": kg }, cilj: number | null,
+ *   ciljBaza: number | null }  (ciljBaza = težina u trenutku postavljanja cilja,
+ *   da se zna smer: mršavljenje ako je cilj ispod baze, gojenje ako je iznad)
  */
 
 /* ===================== SUPABASE KONFIGURACIJA ===================== */
@@ -234,6 +236,7 @@ function ucitajKilazu() {
   var o = JSON.parse(sirovo);
   if (!o.unosi) o.unosi = {};
   if (o.cilj === undefined) o.cilj = null;
+  if (o.ciljBaza === undefined) o.ciljBaza = null; // težina kad je cilj postavljen (za smer)
   return o;
 }
 
