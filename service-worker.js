@@ -9,7 +9,7 @@
  * KES_NAZIV (npr. "fokus-v2") da bi korisnici dobili novu verziju.
  */
 
-var KES_NAZIV = "fokus-v11";
+var KES_NAZIV = "fokus-v12";
 
 var FAJLOVI = [
   "./",
@@ -20,7 +20,8 @@ var FAJLOVI = [
   "./timer.js",
   "./manifest.json",
   "./icon-192.png",
-  "./icon-512.png"
+  "./icon-512.png",
+  "./icon-180.png"
 ];
 
 // Pri instalaciji: snimi sve fajlove aplikacije u keš.

@@ -1597,6 +1597,25 @@ input:focus {
   color: var(--ink-blago);
 }
 
+/* Broj u steperu je pravo polje: klikni pa upiši, ili skroluj do vrednosti.
+   Prebrisuje globalne stilove za input (bez okvira/pozadine, veliki broj). */
+.kilaza-vrednost {
+  width: 92px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.kilaza-vrednost:focus {
+  outline: none;
+}
+
 .kilaza-sacuvaj {
   width: 100%;
   margin-top: 10px;

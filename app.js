@@ -1296,7 +1296,8 @@ function renderKilaza() {
     '<p class="cap">DANAŠNJA KILAŽA · ' + kratakDatum(danasKey()).toUpperCase() + "</p>" +
     '<div class="kilaza-stepper">' +
       '<button class="kilaza-korak" data-korak="-1">−</button>' +
-      '<span class="val"><b>' + formatKg(stanje.kilazaDraft) + "</b><small>kg</small></span>" +
+      '<span class="val"><input class="kilaza-vrednost" type="text" inputmode="decimal" ' +
+        'value="' + formatKg(stanje.kilazaDraft) + '" aria-label="Kilaža u kg"><small>kg</small></span>' +
       '<button class="kilaza-korak" data-korak="1">+</button>' +
     "</div>" +
     '<button class="kilaza-sacuvaj"' + (stanje.kilazaSacuvano ? ' style="background:#3d8f6f"' : "") + ">" +
@@ -1317,6 +1318,7 @@ function renderKilaza() {
     renderKilaza();
   });
   poveziKlik(kontejner, ".kilaza-sacuvaj", function () {
+    stanje.kilazaDraft = clampKilaza(stanje.kilazaDraft);
     upisiKilazu(danasKey(), stanje.kilazaDraft);
     stanje.kilazaSacuvano = true;
     renderKilaza();
@@ -1326,8 +1328,48 @@ function renderKilaza() {
       if (stanje.sekcija === "kilaza") renderKilaza();
     }, 1600);
   });
+
+  // Polje kilaže: klik + kucanje, Enter/blur potvrđuje, skrol menja za 0,1 kg.
+  var polje = kontejner.querySelector(".kilaza-vrednost");
+  if (polje) {
+    polje.addEventListener("focus", function () { this.select(); });
+    polje.addEventListener("input", function () {
+      var v = parseFloat(this.value.replace(",", "."));
+      if (!isNaN(v)) {
+        stanje.kilazaDraft = v;
+        stanje.kilazaSacuvano = false;
+        ponistiOznakuCuvanja(kontejner, danasImaUnos);
+      }
+    });
+    polje.addEventListener("change", function () {
+      stanje.kilazaDraft = clampKilaza(stanje.kilazaDraft);
+      stanje.kilazaSacuvano = false;
+      renderKilaza();
+    });
+    polje.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") this.blur();
+    });
+    polje.addEventListener("wheel", function (e) {
+      e.preventDefault();
+      stanje.kilazaDraft = clampKilaza(stanje.kilazaDraft + (e.deltaY < 0 ? 0.1 : -0.1));
+      stanje.kilazaSacuvano = false;
+      this.value = formatKg(stanje.kilazaDraft);
+      ponistiOznakuCuvanja(kontejner, danasImaUnos);
+    }, { passive: false });
+  }
+
   var ciljEl = kontejner.querySelector(".kilaza-cilj-red, .kilaza-cilj-postavi");
   if (ciljEl) ciljEl.addEventListener("click", klikKilazaCilj);
+}
+
+// Ako je dugme još u stanju "Sačuvano ✓", vrati ga u normalno (kad se draft
+// promeni skrolom/kucanjem bez punog re-rendera).
+function ponistiOznakuCuvanja(kontejner, danasImaUnos) {
+  var b = kontejner.querySelector(".kilaza-sacuvaj");
+  if (b && b.textContent.indexOf("Sačuvano") !== -1) {
+    b.textContent = danasImaUnos ? "Ažuriraj za danas" : "Sačuvaj za danas";
+    b.removeAttribute("style");
+  }
 }
 
 // Postavljanje/menjanje ciljne kilaže (prompt; prazan unos uklanja cilj).
