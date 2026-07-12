@@ -13,8 +13,9 @@
   --linija: #e5dac6;        /* ivice i separatori */
   --pesak: #eee3cd;         /* pozadina trake i "zauzetih" blokova */
   --crvena: #c0503e;        /* linija trenutnog vremena na traci */
-  --zvezda-off: #d8cbb0;    /* nepopunjena zvezdica u oceni dana */
+  --zvezda-off: #d8cbb0;    /* nepopunjena zvezdica u oceni dana / teg */
   --tekst-blago: #b3a992;   /* najtiši tekst (placeholder, "čuva se automatski") */
+  --trening: #b3833f;       /* bronza treninga (blok, tačka, tegovi, akcenti) */
 }
 
 * {
@@ -1626,6 +1627,304 @@ input:focus {
   color: var(--paper-svetlo);
   font-size: 15px;
   font-weight: 600;
+}
+
+/* ===================== TRENING ===================== */
+
+/* Ikonica bučice (naslov, red, blok na traci) */
+.teg-ikona {
+  width: 15px;
+  height: 15px;
+  color: var(--trening);
+  flex-shrink: 0;
+}
+
+.trening-naslov {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* "NOVO" značka u bronzi (umesto ink) za trening */
+.novo-oznaka.trening {
+  background: var(--trening);
+}
+
+/* Textarea u formama (trening linije + beleška) */
+.kartica-forma textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--linija);
+  border-radius: 10px;
+  padding: 10px 12px;
+  resize: none;
+}
+
+.kartica-forma textarea:focus {
+  outline: 2px solid var(--ink);
+  outline-offset: -1px;
+}
+
+.kartica-forma textarea::placeholder {
+  color: var(--tekst-blago);
+}
+
+#trening-linije { min-height: 76px; }
+#trening-beleska { min-height: 54px; }
+
+/* Red treninga u Planu (tap otvara detalj) */
+.trening-red {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  background: var(--paper-svetlo);
+  border: 1px solid var(--linija);
+  border-radius: 12px;
+  padding: 11px 14px;
+  text-align: left;
+}
+
+.trening-tacka {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--trening);
+  flex-shrink: 0;
+}
+
+.trening-red-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.trening-red-naziv {
+  display: block;
+  font-weight: 600;
+  font-size: 14.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trening-red-vreme {
+  font-size: 11.5px;
+  color: var(--ink-blago);
+  font-variant-numeric: tabular-nums;
+}
+
+.trening-strelica {
+  font-size: 20px;
+  color: var(--ink-blago);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Mini tegovi (red + blok na traci) */
+.teg-mini {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.teg-bar {
+  width: 5px;
+  border-radius: 2px;
+  background: transparent;
+  border: 1.5px solid var(--zvezda-off);
+}
+
+.teg-bar.puna {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.teg-mini .teg-bar:nth-child(1) { height: 8px; }
+.teg-mini .teg-bar:nth-child(2) { height: 11px; }
+.teg-mini .teg-bar:nth-child(3) { height: 14px; }
+.teg-mini .teg-bar:nth-child(4) { height: 17px; }
+.teg-mini .teg-bar:nth-child(5) { height: 20px; }
+
+/* Teg-birač u formi (tappable) */
+.teg-naslov {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: var(--ink-blago);
+  margin-bottom: 8px;
+}
+
+.teg-hint {
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: var(--tekst-blago);
+}
+
+.teg-birac {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.teg-dugme {
+  width: 14px;
+  border-radius: 5px;
+  background: transparent;
+  border: 2px solid var(--zvezda-off);
+}
+
+.teg-dugme.puna {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.teg-birac .teg-dugme:nth-child(1) { height: 22px; }
+.teg-birac .teg-dugme:nth-child(2) { height: 27px; }
+.teg-birac .teg-dugme:nth-child(3) { height: 32px; }
+.teg-birac .teg-dugme:nth-child(4) { height: 37px; }
+.teg-birac .teg-dugme:nth-child(5) { height: 42px; }
+
+.teg-oznaka {
+  margin-left: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  padding-bottom: 3px;
+}
+
+/* --- Detaljni ekran treninga --- */
+
+.trening-termin {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.trening-termin-vreme {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.trening-termin-traka {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--trening);
+}
+
+.trening-tezina-kartica {
+  background: var(--paper-svetlo);
+  border: 1px solid var(--linija);
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(35, 47, 75, 0.05);
+  padding: 18px 16px 15px;
+}
+
+.teg-veliki {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 11px;
+}
+
+.teg-veliki .teg-bar {
+  width: 16px;
+  border-radius: 5px;
+}
+
+.teg-veliki .teg-bar:nth-child(1) { height: 26px; }
+.teg-veliki .teg-bar:nth-child(2) { height: 31px; }
+.teg-veliki .teg-bar:nth-child(3) { height: 37px; }
+.teg-veliki .teg-bar:nth-child(4) { height: 43px; }
+.teg-veliki .teg-bar:nth-child(5) { height: 49px; }
+
+.trening-tezina-oznaka {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-top: 13px;
+}
+
+.trening-tezina-oznaka span {
+  color: var(--ink-blago);
+  font-weight: 500;
+}
+
+.trening-vezba {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--paper-svetlo);
+  border: 1px solid var(--linija);
+  border-radius: 12px;
+  padding: 11px 14px;
+}
+
+.trening-vezba-naziv {
+  flex: 1;
+  font-weight: 600;
+  font-size: 14.5px;
+}
+
+.trening-vezba-detalj {
+  font-size: 12.5px;
+  color: var(--ink-blago);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.trening-beleska {
+  background: var(--paper-svetlo);
+  border: 1px solid var(--linija);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #3f3a2e;
+  white-space: pre-wrap;
+}
+
+.obrisi-trening {
+  width: 100%;
+  margin-top: 26px;
+  padding: 13px;
+  border-radius: 12px;
+  border: 1px solid var(--linija);
+  background: var(--paper-svetlo);
+  color: var(--crvena);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* --- Trening blok na vertikalnoj traci --- */
+.vtraka-blok.trening {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-left: 3px solid var(--trening);
+  background: rgba(179, 131, 63, 0.16);
+}
+
+.trening-blok-info {
+  min-width: 0;
+}
+
+.vtraka-blok.trening strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vtraka-blok.trening small {
+  color: #8a7a55;
 }
 
 /* ===================== EKRAN UČITAVANJA ===================== */

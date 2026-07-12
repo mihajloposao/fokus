@@ -23,6 +23,12 @@ var MESECI_KRATKO = ["Jan", "Feb", "Mar", "Apr", "Maj", "Jun", "Jul", "Avg", "Se
 // Reč uz ocenu dana (indeks = broj zvezdica). 0 = još neocenjeno.
 var OCENA_LABELE = ["Oceni dan", "Težak dan", "Ispod proseka", "Solidno", "Dobar dan", "Odličan dan"];
 
+// Reč uz težinu trening-sesije (indeks = broj tegova 1–5).
+var TRENING_LABELE = ["", "Lako", "Umereno", "Solidno", "Naporno", "Maksimalno"];
+
+// Bronzana boja treninga (ista kao paleta[2]) — blok na traci i akcenti.
+var TRENING_BOJA = "#b3833f";
+
 /* ===================== STANJE UI ===================== */
 
 // Sve što UI pamti između rendera, a NE čuva se u localStorage.
@@ -36,7 +42,10 @@ var stanje = {
   ocenaOtvorena: false,       // da li je editor ocene dana raširen (Detalj ekran)
   kilazaOpseg: "30d",         // opseg grafika kilaže: 7d | 30d | sve
   kilazaDraft: null,          // vrednost u steperu (kg) pre čuvanja; null = tek otvoreno
-  kilazaSacuvano: false       // prolazno: "Sačuvano ✓" posle upisa
+  kilazaSacuvano: false,      // prolazno: "Sačuvano ✓" posle upisa
+  treningTezina: 3,           // izabrana težina (1–5) u formi za novi trening
+  treningDatum: null,         // datum treninga otvorenog na Trening ekranu
+  treningId: null             // id treninga otvorenog na Trening ekranu
 };
 
 /* ===================== DATUMI ===================== */
@@ -52,6 +61,12 @@ function dateKey(d) {
 // Današnji datum kao ključ.
 function danasKey() {
   return dateKey(new Date());
+}
+
+// Jedinstven id (vreme + slučajni deo) — dovoljno za jednokorisničku app.
+// Koristi se za stavke, obaveze i treninge.
+function noviId() {
+  return Date.now() + "-" + Math.random().toString(36).slice(2, 8);
 }
 
 // Pravi Date objekat od ključa "YYYY-MM-DD" (u lokalnoj zoni).
@@ -292,8 +307,8 @@ function prikaziSekciju(naziv) {
     stanje.kilazaSacuvano = false;
   }
 
-  // Bottom nav: "detalj" nije tab, pa tada ostaje označena Istorija.
-  var navTab = naziv === "detalj" ? "istorija" : naziv;
+  // Bottom nav: "detalj" nije tab (ostaje Istorija), "trening" ostaje Plan.
+  var navTab = naziv === "detalj" ? "istorija" : (naziv === "trening" ? "plan" : naziv);
   var dugmad = document.querySelectorAll(".nav-dugme");
   for (var j = 0; j < dugmad.length; j++) {
     dugmad[j].classList.toggle("aktivan", dugmad[j].dataset.sekcija === navTab);
@@ -309,6 +324,7 @@ function osveziAktivnuSekciju() {
   if (stanje.sekcija === "istorija") renderIstorija();
   if (stanje.sekcija === "detalj") renderDetalj();
   if (stanje.sekcija === "kilaza") renderKilaza();
+  if (stanje.sekcija === "trening") renderTrening();
 }
 
 // Kači "click" handler na sve elemente koji odgovaraju selektoru unutar
@@ -525,6 +541,12 @@ function rasponTrake(datum, sada) {
       max = Math.max(max, t);
     }
   }
+  // Treninzi (blokovi na traci) šire raspon svojim terminom.
+  var treninzi = dan.treninzi || [];
+  for (var w = 0; w < treninzi.length; w++) {
+    min = Math.min(min, vremeUMinute(treninzi[w].od));
+    max = Math.max(max, vremeUMinute(treninzi[w].do));
+  }
   var tajmer = ucitajAktivniTajmer();
   if (tajmer !== null && tajmer.datum === datum && tajmer.start !== null) {
     min = Math.min(min, timestampUMinute(tajmer.start));
@@ -555,6 +577,7 @@ function renderPlan() {
   renderFiksneDogadjaje(dan);
   renderPlanStavke(dan);
   renderPlanObaveze(dan);
+  renderPlanTreninzi(dan);
 
   // "Ukupno planirano": vreme ciljeva + broj obaveza (koje nemaju cilj).
   var ukupnoTekst = formatTrajanje(ukupnoCiljaDana(datum));
@@ -591,6 +614,158 @@ function renderPlanObaveze(dan) {
   poveziKlik(kontejner, ".obrisi-dugme", function () {
     obrisiObavezu(stanje.planDatum, this.dataset.id);
     renderPlan();
+  });
+}
+
+/* ===================== TRENING ===================== */
+
+// Ikonica bučice (koristi se u naslovu, redu i bloku na traci).
+function treningIkonaSvg() {
+  return '<svg class="teg-ikona" viewBox="0 0 24 24"><path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12" ' +
+    'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+}
+
+// Trajanje treninga (od–do) u minutima.
+function treningMinuta(t) {
+  return vremeUMinute(t.do) - vremeUMinute(t.od);
+}
+
+// Mali prikaz tegova (5 stubića) popunjenih do date težine.
+// klasa: "teg-mini" (red/traka) ili "teg-veliki" (detalj ekran).
+function tegoviHtml(tezina, klasa) {
+  var s = "";
+  for (var i = 1; i <= 5; i++) {
+    s += '<span class="teg-bar' + (i <= tezina ? " puna" : "") + '"></span>';
+  }
+  return '<span class="' + klasa + '">' + s + "</span>";
+}
+
+// Lista treninga na Plan ekranu (tap otvara detalj) + teg-birač u formi.
+function renderPlanTreninzi(dan) {
+  var kontejner = document.getElementById("plan-treninzi");
+  var treninzi = dan.treninzi || [];
+  var html = "";
+
+  for (var i = 0; i < treninzi.length; i++) {
+    var t = treninzi[i];
+    html +=
+      '<button type="button" class="trening-red" data-id="' + t.id + '">' +
+        '<span class="trening-tacka"></span>' +
+        '<span class="trening-red-info">' +
+          '<span class="trening-red-naziv">' + escapeHtml(t.naziv) + "</span>" +
+          '<span class="trening-red-vreme">' + t.od + "–" + t.do + " · " + formatTrajanje(treningMinuta(t)) + "</span>" +
+        "</span>" +
+        tegoviHtml(t.tezina, "teg-mini") +
+        '<span class="trening-strelica">›</span>' +
+      "</button>";
+  }
+  kontejner.innerHTML = html;
+
+  poveziKlik(kontejner, ".trening-red", function () {
+    otvoriTrening(stanje.planDatum, this.dataset.id);
+  });
+
+  crtajTegBirac();
+}
+
+// (Pre)crta 5 tegova u formi + reč težine. Poziva se pri renderu i pri tapu
+// (u mestu — ne dira ostala polja forme koja korisnik popunjava).
+function crtajTegBirac() {
+  var birac = document.getElementById("trening-tezina");
+  if (!birac) return;
+  var t = stanje.treningTezina;
+  var html = "";
+  for (var i = 1; i <= 5; i++) {
+    html += '<button type="button" class="teg-dugme' + (i <= t ? " puna" : "") + '" data-teg="' + i + '"></button>';
+  }
+  html += '<span class="teg-oznaka">' + TRENING_LABELE[t] + " · " + t + "/5</span>";
+  birac.innerHTML = html;
+
+  poveziKlik(birac, ".teg-dugme", function () {
+    stanje.treningTezina = Number(this.dataset.teg);
+    crtajTegBirac();
+  });
+}
+
+// Otvara detaljni ekran jednog treninga.
+function otvoriTrening(datum, id) {
+  stanje.treningDatum = datum;
+  stanje.treningId = id;
+  prikaziSekciju("trening");
+}
+
+// Detaljni ekran treninga: termin, težina (tegovi), šta sam radio, beleška.
+function renderTrening() {
+  var kontejner = document.getElementById("trening-sadrzaj");
+  var t = nadjiTrening(stanje.treningDatum, stanje.treningId);
+  if (t === null) { // obrisan u međuvremenu
+    prikaziSekciju("plan");
+    return;
+  }
+  var d = datumIzKljuca(stanje.treningDatum);
+
+  // Linije "šta sam radio": svaka se deli na "—" (levo naziv, desno detalj).
+  var linijeHtml = "";
+  var redovi = (t.linije || "").split("\n");
+  for (var i = 0; i < redovi.length; i++) {
+    var red = redovi[i].trim();
+    if (red === "") continue;
+    var delovi = red.split("—");
+    var levo = delovi[0].trim();
+    var desno = delovi.length > 1 ? delovi.slice(1).join("—").trim() : "";
+    linijeHtml +=
+      '<div class="trening-vezba">' +
+        '<span class="trening-vezba-naziv">' + escapeHtml(levo) + "</span>" +
+        (desno ? '<span class="trening-vezba-detalj">' + escapeHtml(desno) + "</span>" : "") +
+      "</div>";
+  }
+
+  var html =
+    '<header class="ekran-zaglavlje">' +
+      "<div>" +
+        '<button class="nazad-dugme" id="trening-nazad">‹ Plan</button>' +
+        '<p class="nadnaslov">TRENING · ' + DANI[d.getDay()].toUpperCase() + "</p>" +
+        "<h1>" + escapeHtml(t.naziv) + "</h1>" +
+      "</div>" +
+      '<div class="zbir">' +
+        "<strong>" + formatTrajanje(treningMinuta(t)) + "</strong>" +
+        "<small>" + t.od + "–" + t.do + "</small>" +
+      "</div>" +
+    "</header>" +
+
+    '<p class="naslov-sekcije">TERMIN</p>' +
+    '<div class="trening-termin">' +
+      '<span class="trening-termin-vreme">' + t.od + "</span>" +
+      '<span class="trening-termin-traka"></span>' +
+      '<span class="trening-termin-vreme">' + t.do + "</span>" +
+    "</div>" +
+
+    '<p class="naslov-sekcije">TEŽINA SESIJE</p>' +
+    '<div class="trening-tezina-kartica">' +
+      tegoviHtml(t.tezina, "teg-veliki") +
+      '<p class="trening-tezina-oznaka">' + TRENING_LABELE[t.tezina] +
+        ' <span>· ' + t.tezina + "/5</span></p>" +
+    "</div>";
+
+  if (linijeHtml) {
+    html += '<p class="naslov-sekcije">ŠTA SAM RADIO</p><div class="lista">' + linijeHtml + "</div>";
+  }
+  if (t.beleska && t.beleska.trim() !== "") {
+    html += '<p class="naslov-sekcije">BELEŠKA</p>' +
+      '<div class="trening-beleska">' + escapeHtml(t.beleska) + "</div>";
+  }
+
+  html += '<button class="obrisi-trening" id="trening-obrisi">Obriši trening</button>';
+
+  kontejner.innerHTML = html;
+  document.getElementById("trening-nazad").addEventListener("click", function () {
+    prikaziSekciju("plan");
+  });
+  document.getElementById("trening-obrisi").addEventListener("click", function () {
+    if (confirm('Obrisati trening "' + t.naziv + '"?')) {
+      obrisiTrening(stanje.treningDatum, stanje.treningId);
+      prikaziSekciju("plan");
+    }
   });
 }
 
@@ -970,6 +1145,25 @@ function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
     }
   }
 
+  // Treninzi: bronzani blokovi sa tegovima (dizajn "trening").
+  var treninzi = dan.treninzi || [];
+  for (var w = 0; w < treninzi.length; w++) {
+    var tr = treninzi[w];
+    var trTop = vrh(vremeUMinute(tr.od));
+    blokovi.push({
+      top: trTop,
+      visina: Math.max(vrh(vremeUMinute(tr.do)) - trTop, MIN_VISINA),
+      klasa: "trening",
+      boja: null,
+      html:
+        '<div class="trening-blok-info">' +
+          "<strong>" + treningIkonaSvg() + escapeHtml(tr.naziv) + "</strong>" +
+          "<small>" + tr.od + "–" + tr.do + " · " + formatTrajanje(treningMinuta(tr)) + "</small>" +
+        "</div>" +
+        tegoviHtml(tr.tezina, "teg-mini")
+    });
+  }
+
   // 2) Rasporedi blokove u kolone da se preklapajući prikazuju jedan pored drugog.
   rasporediUKolone(blokovi);
 
@@ -1002,11 +1196,12 @@ function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
         : "border-left-color:" + blok.boja + ";background:" + blok.boja + "15;";
     }
 
+    // Trening blok ima svoj raspored (bronza + tegovi), ostali klasičan strong/small.
+    var kompakt = blok.klasa.indexOf("trening") === -1 && blok.visina < KOMPAKT_PRAG;
     html +=
-      '<div class="vtraka-blok ' + blok.klasa + (blok.visina < KOMPAKT_PRAG ? " kompakt" : "") +
+      '<div class="vtraka-blok ' + blok.klasa + (kompakt ? " kompakt" : "") +
         '" style="' + stil + '">' +
-        "<strong>" + blok.naslov + "</strong>" +
-        "<small>" + blok.podnaslov + "</small>" +
+        (blok.html ? blok.html : "<strong>" + blok.naslov + "</strong><small>" + blok.podnaslov + "</small>") +
       "</div>";
   }
 
@@ -1492,8 +1687,7 @@ function dodajStavku() {
 
   var dan = ucitajDan(stanje.planDatum);
   dan.items.push({
-    // Jedinstven id: vreme + slučajni deo, dovoljno za jednokorisničku app.
-    id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+    id: noviId(),
     naziv: naziv,
     boja: stanje.novaBoja,
     ciljMinuta: cilj
@@ -1532,7 +1726,7 @@ function dodajObavezu(datum, naziv) {
   var dan = ucitajDan(datum);
   if (!dan.obaveze) dan.obaveze = [];
   dan.obaveze.push({
-    id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+    id: noviId(),
     naziv: naziv,
     checkedAt: null
   });
@@ -1571,6 +1765,65 @@ function dodajObavezuKlik() {
   }
   dodajObavezu(stanje.planDatum, naziv);
   input.value = "";
+  renderPlan();
+}
+
+// Dodaje trening u dan (naziv + termin + slobodne linije + težina + beleška).
+function dodajTrening(datum, t) {
+  var dan = ucitajDan(datum);
+  if (!dan.treninzi) dan.treninzi = [];
+  dan.treninzi.push({
+    id: noviId(),
+    naziv: t.naziv, od: t.od, do: t.do,
+    linije: t.linije, tezina: t.tezina, beleska: t.beleska
+  });
+  sacuvajDan(datum, dan);
+}
+
+// Briše trening iz dana.
+function obrisiTrening(datum, id) {
+  var dan = ucitajDan(datum);
+  dan.treninzi = (dan.treninzi || []).filter(function (x) { return x.id !== id; });
+  sacuvajDan(datum, dan);
+}
+
+// Nalazi trening po id-u; vraća null ako ne postoji.
+function nadjiTrening(datum, id) {
+  var lista = ucitajDan(datum).treninzi || [];
+  for (var i = 0; i < lista.length; i++) {
+    if (lista[i].id === id) return lista[i];
+  }
+  return null;
+}
+
+// Dodavanje treninga iz forme na Plan ekranu.
+function dodajTreningKlik() {
+  var naziv = document.getElementById("trening-naziv").value.trim();
+  var od = document.getElementById("trening-od").value;
+  var doVreme = document.getElementById("trening-do").value;
+
+  if (naziv === "") { alert("Upiši naziv treninga."); return; }
+  if (od === "" || doVreme === "") { alert("Upiši termin (od i do)."); return; }
+  if (vremeUMinute(doVreme) <= vremeUMinute(od)) {
+    alert("Vreme kraja mora biti posle vremena početka.");
+    return;
+  }
+
+  dodajTrening(stanje.planDatum, {
+    naziv: naziv,
+    od: od,
+    do: doVreme,
+    linije: document.getElementById("trening-linije").value,
+    tezina: stanje.treningTezina,
+    beleska: document.getElementById("trening-beleska").value.trim()
+  });
+
+  document.getElementById("trening-naziv").value = "";
+  document.getElementById("trening-od").value = "";
+  document.getElementById("trening-do").value = "";
+  document.getElementById("trening-linije").value = "";
+  document.getElementById("trening-beleska").value = "";
+  stanje.treningTezina = 3;
   renderPlan();
 }
 
@@ -1633,6 +1886,9 @@ function init() {
   document.getElementById("obaveza-naziv").addEventListener("keydown", function (e) {
     if (e.key === "Enter") dodajObavezuKlik();
   });
+
+  // Plan: novi trening. (Teg-birač se povezuje u crtajTegBirac pri svakom renderu.)
+  document.getElementById("trening-dodaj").addEventListener("click", dodajTreningKlik);
 
   // Istorija: listanje meseci.
   document.getElementById("mesec-nazad").addEventListener("click", function () {

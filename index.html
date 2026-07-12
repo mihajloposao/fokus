@@ -141,6 +141,30 @@
       </div>
     </div>
 
+    <p class="naslov-sekcije">
+      <span class="trening-naslov">
+        <svg class="teg-ikona" viewBox="0 0 24 24"><path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        TRENING <span class="novo-oznaka trening">NOVO</span>
+      </span>
+      <span class="desno">upisuješ posle</span>
+    </p>
+    <div id="plan-treninzi" class="lista"></div>
+
+    <div class="kartica-forma istaknuta">
+      <input id="trening-naziv" type="text" placeholder="Naziv treninga — npr. Gornji deo tela" maxlength="40">
+      <div class="red-polja">
+        <label>od <input id="trening-od" type="time"></label>
+        <label>do <input id="trening-do" type="time"></label>
+      </div>
+      <textarea id="trening-linije" placeholder="Šta si radio (jedna vežba po redu)&#10;npr. Potisak s klupe — 4×8 · 60 kg" maxlength="600"></textarea>
+      <div>
+        <p class="teg-naslov">TEŽINA SESIJE <span class="teg-hint">· tapni teg</span></p>
+        <div id="trening-tezina" class="teg-birac"></div>
+      </div>
+      <textarea id="trening-beleska" placeholder="Beleška — kako si se osećao (opciono)" maxlength="300"></textarea>
+      <button id="trening-dodaj" class="glavno-dugme">Sačuvaj trening</button>
+    </div>
+
     <div class="ukupno-red">
       <span>Ukupno planirano</span>
       <strong id="plan-ukupno">0m</strong>
@@ -214,6 +238,12 @@
        renderKilaza u app.js jer je interaktivan (opseg, unos, čuvanje). -->
   <section id="sekcija-kilaza" hidden>
     <div id="kilaza-sadrzaj"></div>
+  </section>
+
+  <!-- ======================= EKRAN: TRENING (detalj) ======================= -->
+  <!-- Otvara se tapom na trening u Planu; renderuje ga renderTrening. -->
+  <section id="sekcija-trening" hidden>
+    <div id="trening-sadrzaj"></div>
   </section>
 
 </main>

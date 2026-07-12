@@ -20,6 +20,8 @@
  *       items:       [ { id, naziv, boja, ciljMinuta } ],
  *       sessions:    [ { itemId, start: timestamp_ms, end: timestamp_ms } ],
  *       obaveze:     [ { id, naziv, checkedAt: timestamp_ms | null } ],
+ *       treninzi:    [ { id, naziv, od: "17:30", do: "18:40",
+ *                        linije: "slobodan tekst\npo redu", tezina: 1-5, beleska } ],
  *       ocena:       0,     // ocena dana 0–5 (opciono; 0 = neocenjeno)
  *       beleska:     ""     // beleška o danu (opciono)
  *     }
