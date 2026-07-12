@@ -9,7 +9,7 @@
 --         &broj_dana=30                        (opciono: drugi period)
 --
 -- Vraća jedan čitljiv JSON: po danima (stavke sa ciljem i odrađenim minutima,
--- sesije, obaveze, ocena, beleška) + merenja kilaže u istom periodu.
+-- sesije, obaveze, treninzi, ocena, beleška) + merenja kilaže u istom periodu.
 -- Sva vremena su u zoni Europe/Belgrade; minuti su već izračunati iz sesija.
 --
 -- POKRETANJE: nalepi ceo fajl u Supabase dashboard -> SQL Editor -> Run.
@@ -106,6 +106,25 @@ sastav as (
             else null end
         ))
         from jsonb_array_elements(coalesce(dan->'obaveze', '[]'::jsonb)) o
+      ), '[]'::jsonb),
+
+      'treninzi', coalesce((
+        select jsonb_agg(jsonb_build_object(
+          'naziv', tr->>'naziv',
+          'od', tr->>'od',
+          'do', tr->>'do',
+          'trajanjeMinuta',
+            (split_part(tr->>'do', ':', 1)::int * 60 + split_part(tr->>'do', ':', 2)::int)
+            - (split_part(tr->>'od', ':', 1)::int * 60 + split_part(tr->>'od', ':', 2)::int),
+          'tezina', (tr->>'tezina')::int,
+          'tezinaRec', (array['Lako','Umereno','Solidno','Naporno','Maksimalno'])[(tr->>'tezina')::int],
+          'linije', coalesce((
+            select jsonb_agg(trim(x)) filter (where trim(x) <> '')
+            from unnest(string_to_array(coalesce(tr->>'linije', ''), E'\n')) x
+          ), '[]'::jsonb),
+          'beleska', nullif(tr->>'beleska', '')
+        ))
+        from jsonb_array_elements(coalesce(dan->'treninzi', '[]'::jsonb)) tr
       ), '[]'::jsonb),
 
       'ocena', case when coalesce((dan->>'ocena')::numeric, 0) > 0
