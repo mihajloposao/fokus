@@ -48,7 +48,7 @@ body {
 main {
   max-width: 520px;
   margin: 0 auto;
-  padding: 20px 18px 96px; /* dno ostavlja mesto za donju navigaciju */
+  padding: 20px 18px 124px; /* dno ostavlja mesto za donju navigaciju + malo vazduha */
 }
 
 h1 {
