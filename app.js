@@ -45,7 +45,10 @@ var stanje = {
   kilazaSacuvano: false,      // prolazno: "Sačuvano ✓" posle upisa
   treningTezina: 3,           // izabrana težina (1–5) u formi za novi trening
   treningDatum: null,         // datum treninga otvorenog na Trening ekranu
-  treningId: null             // id treninga otvorenog na Trening ekranu
+  treningId: null,            // id treninga otvorenog na Trening ekranu
+  // Draft forme za obrok (Kilaža). Čuva se u stanju da se ne izgubi kad
+  // renderKilaza ponovo iscrta ekran (npr. posle koraka na steperu).
+  obrokDraft: { opis: "", kcal: "", protein: "", ugljeni: "" }
 };
 
 /* ===================== DATUMI ===================== */
@@ -205,6 +208,28 @@ function brojZavrsenih(datum, sada) {
 function brojJedinica(datum) {
   var dan = ucitajDan(datum);
   return dan.items.length + (dan.obaveze ? dan.obaveze.length : 0);
+}
+
+// Zbir svih obroka dana: kalorije, proteini, ugljeni hidrati i broj obroka.
+function zbirObroka(datum) {
+  var obroci = ucitajObroke(datum);
+  var zbir = { kcal: 0, protein: 0, ugljeni: 0, broj: obroci.length };
+  for (var i = 0; i < obroci.length; i++) {
+    zbir.kcal += obroci[i].kcal || 0;
+    zbir.protein += obroci[i].protein || 0;
+    zbir.ugljeni += obroci[i].ugljeni || 0;
+  }
+  return zbir;
+}
+
+// "1.850 kcal" — hiljade sa tačkom da se veliki brojevi lakše čitaju.
+function formatKcal(n) {
+  return Math.round(n).toLocaleString("sr-RS");
+}
+
+// Grami: bez decimala ("42 g"), jer se unose kao celi brojevi.
+function formatGrami(n) {
+  return Math.round(n) + " g";
 }
 
 // Status dana za kalendar u Istoriji:
@@ -882,9 +907,9 @@ function renderKalendar(godina, mesec) {
   }
   kontejner.innerHTML = html;
 
-  // Klik na dan sa planom otvara Detalj dana.
+  // Klik na dan sa planom (ili bar upisanim obrocima) otvara Detalj dana.
   poveziKlik(kontejner, ".kal-dan", function () {
-    if (danImaPlan(this.dataset.datum)) {
+    if (danImaPlan(this.dataset.datum) || danImaObroke(this.dataset.datum)) {
       otvoriDetalj(this.dataset.datum);
     }
   });
@@ -899,10 +924,13 @@ function renderPoslednjeDane() {
   var kljuc = danasKey();
 
   for (var i = 0; i < 14; i++) {
-    if (danImaPlan(kljuc)) {
+    // Dan sa samo obrocima (bez plana) takođe ulazi u listu — da se kalorije
+    // vide i za dane kad ništa nije planirano.
+    if (danImaPlan(kljuc) || danImaObroke(kljuc)) {
       var dan = ucitajDan(kljuc);
       var d = datumIzKljuca(kljuc);
       var zavrseno = brojZavrsenih(kljuc, sada);
+      var zbir = zbirObroka(kljuc);
 
       // Mini trake: po jedna linija za svaku stavku, širina = odrađeno/cilj.
       var trake = "";
@@ -914,13 +942,20 @@ function renderPoslednjeDane() {
           "</span>";
       }
 
+      var naslovRed = danImaPlan(kljuc)
+        ? zavrseno + " od " + brojJedinica(kljuc) + " gotovo"
+        : "bez plana";
+
       html +=
         '<button class="dan-red" data-datum="' + kljuc + '">' +
           '<span class="dan-broj">' + String(d.getDate()).padStart(2, "0") +
             "<small>" + DANI_KRATKO[d.getDay()] + "</small></span>" +
           '<span class="dan-info">' +
-            "<strong>" + zavrseno + " od " + brojJedinica(kljuc) + " gotovo</strong>" +
+            "<strong>" + naslovRed + "</strong>" +
             '<span class="mini-trake">' + trake + "</span>" +
+            (zbir.broj
+              ? '<span class="dan-kcal">' + formatKcal(zbir.kcal) + " kcal · " + zbir.broj + " " + recObroka(zbir.broj) + "</span>"
+              : "") +
           "</span>" +
           '<span class="dan-vreme">' + formatTrajanje(ukupnoMinutaDana(kljuc, sada)) + "</span>" +
         "</button>";
@@ -958,6 +993,49 @@ function renderDetalj() {
   renderOcenaDana(datum);
   renderVertikalnuTraku(document.getElementById("detalj-traka"), datum, sada, false);
   renderCiljVsOdradjeno(datum, sada);
+  renderDetaljObroke(datum);
+}
+
+// Obroci jednog dana u istoriji: zbir kalorija/makroa + spisak obroka.
+// Read-only — unos i brisanje idu preko Kilaže.
+function renderDetaljObroke(datum) {
+  var kontejner = document.getElementById("detalj-obroci");
+  var obroci = ucitajObroke(datum);
+
+  if (!obroci.length) {
+    kontejner.innerHTML = "";
+    return;
+  }
+
+  var zbir = zbirObroka(datum);
+  var html = '<p class="naslov-sekcije"><span class="obrok-naslov">' + obrokIkonaSvg() +
+    " OBROCI</span><span class=\"desno\">" + zbir.broj + " " + recObroka(zbir.broj) + "</span></p>";
+
+  html += '<div class="obrok-zbir">' +
+    '<div class="obrok-zbir-glavno"><b>' + formatKcal(zbir.kcal) + "</b><small>kcal ukupno</small></div>" +
+    '<div class="obrok-zbir-makroi">' +
+      '<span><b>' + formatGrami(zbir.protein) + "</b><small>proteini</small></span>" +
+      '<span><b>' + formatGrami(zbir.ugljeni) + "</b><small>ugljeni h.</small></span>" +
+    "</div>" +
+  "</div>";
+
+  html += '<div class="lista obroci-lista">';
+  for (var i = 0; i < obroci.length; i++) {
+    var o = obroci[i];
+    html += '<div class="obrok-red staticni">' +
+      '<span class="obrok-info">' +
+        '<span class="obrok-opis">' + escapeHtml(o.opis) + "</span>" +
+        '<span class="obrok-makroi">' +
+          "<b>" + formatKcal(o.kcal) + " kcal</b>" +
+          "<span>P " + formatGrami(o.protein) + "</span>" +
+          "<span>UH " + formatGrami(o.ugljeni) + "</span>" +
+        "</span>" +
+      "</span>" +
+    "</div>";
+  }
+  html += "</div>";
+
+  kontejner.innerHTML = html;
 }
 
 /* ===================== RENDER: OCENA DANA ===================== */
@@ -1295,6 +1373,137 @@ function renderCiljVsOdradjeno(datum, sada) {
   kontejner.innerHTML = html === "" ? '<p class="prazno">Nema stavki za ovaj dan.</p>' : html;
 }
 
+/* ===================== OBROCI (unos na Kilaži) ===================== */
+
+// Ikonica obroka (viljuška i nož) — koristi se uz naslove sekcija.
+function obrokIkonaSvg() {
+  return '<svg class="obrok-ikona" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M6 3v8a2 2 0 0 0 4 0V3M8 11v10M18 3c-1.7 1-2.5 3-2.5 5.5S16.3 13 18 13v8"/></svg>';
+}
+
+// Jedan red obroka u listi (opis + makroi + dugme za brisanje).
+function obrokRedHtml(o) {
+  return '<div class="obrok-red" data-id="' + o.id + '">' +
+    '<span class="obrok-info">' +
+      '<span class="obrok-opis">' + escapeHtml(o.opis) + "</span>" +
+      '<span class="obrok-makroi">' +
+        "<b>" + formatKcal(o.kcal) + " kcal</b>" +
+        "<span>P " + formatGrami(o.protein) + "</span>" +
+        "<span>UH " + formatGrami(o.ugljeni) + "</span>" +
+      "</span>" +
+    "</span>" +
+    '<button class="obrok-obrisi" title="Obriši obrok" aria-label="Obriši obrok">×</button>' +
+  "</div>";
+}
+
+// Cela sekcija obroka na Kilaži: zbir dana, lista i forma za novi unos.
+function renderObrociHtml() {
+  var datum = danasKey();
+  var obroci = ucitajObroke(datum);
+  var zbir = zbirObroka(datum);
+  var d = stanje.obrokDraft;
+
+  var html = '<div class="obroci-blok">';
+
+  html += '<p class="naslov-sekcije"><span class="obrok-naslov">' + obrokIkonaSvg() +
+    " OBROCI · " + kratakDatum(datum).toUpperCase() + "</span>" +
+    '<span class="desno">' + zbir.broj + " " + recObroka(zbir.broj) + "</span></p>";
+
+  // Zbir dana — prikazujemo ga i kad je nula, da unos ima jasan cilj.
+  html += '<div class="obrok-zbir">' +
+    '<div class="obrok-zbir-glavno"><b>' + formatKcal(zbir.kcal) + "</b><small>kcal danas</small></div>" +
+    '<div class="obrok-zbir-makroi">' +
+      '<span><b>' + formatGrami(zbir.protein) + "</b><small>proteini</small></span>" +
+      '<span><b>' + formatGrami(zbir.ugljeni) + "</b><small>ugljeni h.</small></span>" +
+    "</div>" +
+  "</div>";
+
+  if (obroci.length) {
+    html += '<div class="lista obroci-lista">';
+    for (var i = 0; i < obroci.length; i++) html += obrokRedHtml(obroci[i]);
+    html += "</div>";
+  }
+
+  html += '<div class="kartica-forma istaknuta obrok-forma">' +
+    '<input class="obrok-opis-polje" type="text" maxlength="60" ' +
+      'placeholder="Obrok — npr. Piletina sa pirinčem" value="' + escapeHtml(d.opis) + '">' +
+    '<div class="red-polja obrok-brojevi">' +
+      '<label>kcal <input class="obrok-kcal" type="text" inputmode="numeric" placeholder="0" value="' + escapeHtml(d.kcal) + '"></label>' +
+      '<label>P (g) <input class="obrok-protein" type="text" inputmode="numeric" placeholder="0" value="' + escapeHtml(d.protein) + '"></label>' +
+      '<label>UH (g) <input class="obrok-ugljeni" type="text" inputmode="numeric" placeholder="0" value="' + escapeHtml(d.ugljeni) + '"></label>' +
+    "</div>" +
+    '<button class="obrok-dodaj glavno-dugme">+ Dodaj obrok</button>' +
+  "</div>";
+
+  return html + "</div>";
+}
+
+// "obrok" / "obroka" — da zaglavlje sekcije zvuči prirodno.
+function recObroka(n) {
+  return n === 1 ? "obrok" : "obroka";
+}
+
+// Čita broj iz polja forme: prazno = 0, zarez radi kao decimalna tačka.
+// Vraća null ako je uneto nešto što nije broj ili je negativno.
+function brojIzPolja(tekst) {
+  var t = String(tekst).trim().replace(",", ".");
+  if (t === "") return 0;
+  var v = parseFloat(t);
+  if (isNaN(v) || v < 0) return null;
+  return v;
+}
+
+// Povezuje formu i listu obroka (poziva se iz renderKilaza posle innerHTML).
+function poveziObroke(kontejner) {
+  var d = stanje.obrokDraft;
+
+  // Draft se pamti na svaki otkucaj da re-render (npr. stepper) ne obriše unos.
+  var polja = [
+    [".obrok-opis-polje", "opis"],
+    [".obrok-kcal", "kcal"],
+    [".obrok-protein", "protein"],
+    [".obrok-ugljeni", "ugljeni"]
+  ];
+  polja.forEach(function (par) {
+    var el = kontejner.querySelector(par[0]);
+    if (el) el.addEventListener("input", function () { d[par[1]] = this.value; });
+  });
+
+  poveziKlik(kontejner, ".obrok-dodaj", function () {
+    var opis = d.opis.trim();
+    if (opis === "") {
+      alert("Upiši šta si jeo.");
+      return;
+    }
+    var kcal = brojIzPolja(d.kcal);
+    var protein = brojIzPolja(d.protein);
+    var ugljeni = brojIzPolja(d.ugljeni);
+    if (kcal === null || protein === null || ugljeni === null) {
+      alert("Kalorije, proteini i ugljeni hidrati moraju biti brojevi (0 ili više).");
+      return;
+    }
+
+    dodajObrok(danasKey(), {
+      id: noviId(),
+      opis: opis,
+      kcal: kcal,
+      protein: protein,
+      ugljeni: ugljeni,
+      upisan: Date.now()
+    });
+
+    stanje.obrokDraft = { opis: "", kcal: "", protein: "", ugljeni: "" };
+    renderKilaza();
+  });
+
+  poveziKlik(kontejner, ".obrok-obrisi", function () {
+    var red = this.closest(".obrok-red");
+    obrisiObrok(danasKey(), red.dataset.id);
+    renderKilaza();
+  });
+}
+
 /* ===================== RENDER: KILAŽA ===================== */
 
 // Prolazni tajmer za "Sačuvano ✓" poruku posle upisa kilaže.
@@ -1511,6 +1720,9 @@ function renderKilaza() {
     "</button>" +
   "</div>";
 
+  // ---- Obroci: današnji unosi + forma ----
+  html += renderObrociHtml();
+
   kontejner.innerHTML = html;
 
   // ---- Interakcije ----
@@ -1566,6 +1778,8 @@ function renderKilaza() {
 
   var ciljEl = kontejner.querySelector(".kilaza-cilj-red, .kilaza-cilj-postavi");
   if (ciljEl) ciljEl.addEventListener("click", klikKilazaCilj);
+
+  poveziObroke(kontejner);
 }
 
 // Ako je dugme još u stanju "Sačuvano ✓", vrati ga u normalno (kad se draft

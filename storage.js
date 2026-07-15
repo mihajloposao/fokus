@@ -22,6 +22,7 @@
  *       obaveze:     [ { id, naziv, checkedAt: timestamp_ms | null } ],
  *       treninzi:    [ { id, naziv, od: "17:30", do: "18:40",
  *                        linije: "slobodan tekst\npo redu", tezina: 1-5, beleska } ],
+ *       obroci:      [ { id, opis, kcal, protein, ugljeni, upisan: timestamp_ms } ],
  *       ocena:       0,     // ocena dana 0–5 (opciono; 0 = neocenjeno)
  *       beleska:     ""     // beleška o danu (opciono)
  *     }
@@ -204,6 +205,36 @@ function danImaPlan(datum) {
   var dan = podaci[datum];
   if (!dan) return false;
   return dan.items.length > 0 || (dan.obaveze && dan.obaveze.length > 0);
+}
+
+/* ===================== OBROCI ===================== */
+
+// Obroci upisani za dati dan (prazan niz ako ih nema).
+function ucitajObroke(datum) {
+  var dan = ucitajDan(datum);
+  return dan.obroci || [];
+}
+
+// Da li dan ima bar jedan upisan obrok? Namerno odvojeno od danImaPlan —
+// obroci ne treba da utiču na streak/ocenu ispunjenja plana.
+function danImaObroke(datum) {
+  return ucitajObroke(datum).length > 0;
+}
+
+// Dodaje obrok u dati dan.
+function dodajObrok(datum, obrok) {
+  var dan = ucitajDan(datum);
+  if (!dan.obroci) dan.obroci = [];
+  dan.obroci.push(obrok);
+  sacuvajDan(datum, dan);
+}
+
+// Briše obrok iz datog dana po id-u.
+function obrisiObrok(datum, id) {
+  var dan = ucitajDan(datum);
+  if (!dan.obroci) return;
+  dan.obroci = dan.obroci.filter(function (o) { return o.id !== id; });
+  sacuvajDan(datum, dan);
 }
 
 /* ===================== AKTIVNI TAJMER ===================== */
