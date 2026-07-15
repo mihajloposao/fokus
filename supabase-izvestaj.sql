@@ -9,7 +9,8 @@
 --         &broj_dana=30                        (opciono: drugi period)
 --
 -- Vraća jedan čitljiv JSON: po danima (stavke sa ciljem i odrađenim minutima,
--- sesije, obaveze, treninzi, ocena, beleška) + merenja kilaže u istom periodu.
+-- sesije, obaveze, treninzi, OBROCI + dnevni zbir kalorija i makroa, ocena,
+-- beleška) + merenja kilaže i prosek ishrane u istom periodu.
 -- Sva vremena su u zoni Europe/Belgrade; minuti su već izračunati iz sesija.
 --
 -- POKRETANJE: nalepi ceo fajl u Supabase dashboard -> SQL Editor -> Run.
@@ -127,20 +128,66 @@ sastav as (
         from jsonb_array_elements(coalesce(dan->'treninzi', '[]'::jsonb)) tr
       ), '[]'::jsonb),
 
+      -- Pojedinačni obroci, hronološki (redosled upisa).
+      'obroci', coalesce((
+        select jsonb_agg(jsonb_build_object(
+          'opis', ob->>'opis',
+          'kcal', (ob->>'kcal')::numeric,
+          'protein', (ob->>'protein')::numeric,
+          'ugljeni', (ob->>'ugljeni')::numeric,
+          'vreme', case when (ob->>'upisan') is not null
+            then to_char(to_timestamp((ob->>'upisan')::numeric / 1000)
+                         at time zone 'Europe/Belgrade', 'HH24:MI')
+            else null end
+        ) order by (ob->>'upisan')::numeric nulls last)
+        from jsonb_array_elements(coalesce(dan->'obroci', '[]'::jsonb)) ob
+      ), '[]'::jsonb),
+
+      -- Dnevni zbir ishrane — već sračunat da ne mora da se sabira ručno.
+      'ishrana', (
+        select jsonb_build_object(
+          'brojObroka', count(*),
+          'ukupnoKcal', coalesce(sum((ob->>'kcal')::numeric), 0),
+          'ukupnoProtein', coalesce(sum((ob->>'protein')::numeric), 0),
+          'ukupnoUgljeni', coalesce(sum((ob->>'ugljeni')::numeric), 0)
+        )
+        from jsonb_array_elements(coalesce(dan->'obroci', '[]'::jsonb)) ob
+      ),
+
       'ocena', case when coalesce((dan->>'ocena')::numeric, 0) > 0
                     then (dan->>'ocena')::numeric else null end,
       'beleska', nullif(dan->>'beleska', '')
     ) as red
   from po_danu
+),
+-- Prosek ishrane: samo po danima koji IMAJU bar jedan obrok, da dani bez
+-- upisa ne obore prosek na lažno nisku vrednost.
+ishrana_prosek as (
+  select
+    count(*) filter (where (red->'ishrana'->>'brojObroka')::int > 0) as dana_sa_unosom,
+    coalesce(round(avg((red->'ishrana'->>'ukupnoKcal')::numeric)
+      filter (where (red->'ishrana'->>'brojObroka')::int > 0), 0), 0) as prosek_kcal,
+    coalesce(round(avg((red->'ishrana'->>'ukupnoProtein')::numeric)
+      filter (where (red->'ishrana'->>'brojObroka')::int > 0), 0), 0) as prosek_protein,
+    coalesce(round(avg((red->'ishrana'->>'ukupnoUgljeni')::numeric)
+      filter (where (red->'ishrana'->>'brojObroka')::int > 0), 0), 0) as prosek_ugljeni
+  from sastav
 )
 select jsonb_build_object(
-  'opis', 'Fokus izveštaj — aktivnosti i kilaža za poslednjih '
+  'opis', 'Fokus izveštaj — aktivnosti, ishrana i kilaža za poslednjih '
           || greatest(broj_dana, 1) || ' dana',
   'generisano', to_char(now() at time zone 'Europe/Belgrade', 'YYYY-MM-DD HH24:MI'),
   'period', (select jsonb_build_object(
       'od', to_char(od, 'YYYY-MM-DD'),
       'do', to_char(dokle, 'YYYY-MM-DD')) from granice),
   'dani', (select jsonb_agg(red order by datum desc) from sastav),
+  'ishranaProsek', (select jsonb_build_object(
+      'danaSaUnosom', dana_sa_unosom,
+      'prosecnoKcal', prosek_kcal,
+      'prosecnoProtein', prosek_protein,
+      'prosecnoUgljeni', prosek_ugljeni,
+      'napomena', 'Prosek se računa samo po danima sa bar jednim upisanim obrokom.'
+    ) from ishrana_prosek),
   'kilaza', (select jsonb_build_object(
       'ciljKg', v->'cilj',
       'unosi', coalesce((
