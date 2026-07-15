@@ -48,7 +48,7 @@ var stanje = {
   treningId: null,            // id treninga otvorenog na Trening ekranu
   // Draft forme za obrok (Kilaža). Čuva se u stanju da se ne izgubi kad
   // renderKilaza ponovo iscrta ekran (npr. posle koraka na steperu).
-  obrokDraft: { opis: "", kcal: "", protein: "", ugljeni: "" }
+  obrokDraft: { opis: "", kcal: "", protein: "", ugljeni: "", masti: "" }
 };
 
 /* ===================== DATUMI ===================== */
@@ -210,14 +210,16 @@ function brojJedinica(datum) {
   return dan.items.length + (dan.obaveze ? dan.obaveze.length : 0);
 }
 
-// Zbir svih obroka dana: kalorije, proteini, ugljeni hidrati i broj obroka.
+// Zbir svih obroka dana: kalorije, makroi i broj obroka. Stariji obroci
+// nemaju upisane masti — "|| 0" ih tretira kao nulu umesto da zbir postane NaN.
 function zbirObroka(datum) {
   var obroci = ucitajObroke(datum);
-  var zbir = { kcal: 0, protein: 0, ugljeni: 0, broj: obroci.length };
+  var zbir = { kcal: 0, protein: 0, ugljeni: 0, masti: 0, broj: obroci.length };
   for (var i = 0; i < obroci.length; i++) {
     zbir.kcal += obroci[i].kcal || 0;
     zbir.protein += obroci[i].protein || 0;
     zbir.ugljeni += obroci[i].ugljeni || 0;
+    zbir.masti += obroci[i].masti || 0;
   }
   return zbir;
 }
@@ -1011,13 +1013,7 @@ function renderDetaljObroke(datum) {
   var html = '<p class="naslov-sekcije"><span class="obrok-naslov">' + obrokIkonaSvg() +
     " OBROCI</span><span class=\"desno\">" + zbir.broj + " " + recObroka(zbir.broj) + "</span></p>";
 
-  html += '<div class="obrok-zbir">' +
-    '<div class="obrok-zbir-glavno"><b>' + formatKcal(zbir.kcal) + "</b><small>kcal ukupno</small></div>" +
-    '<div class="obrok-zbir-makroi">' +
-      '<span><b>' + formatGrami(zbir.protein) + "</b><small>proteini</small></span>" +
-      '<span><b>' + formatGrami(zbir.ugljeni) + "</b><small>ugljeni h.</small></span>" +
-    "</div>" +
-  "</div>";
+  html += zbirObrokaHtml(zbir, "kcal ukupno");
 
   html += '<div class="lista obroci-lista">';
   for (var i = 0; i < obroci.length; i++) {
@@ -1025,11 +1021,7 @@ function renderDetaljObroke(datum) {
     html += '<div class="obrok-red staticni">' +
       '<span class="obrok-info">' +
         '<span class="obrok-opis">' + escapeHtml(o.opis) + "</span>" +
-        '<span class="obrok-makroi">' +
-          "<b>" + formatKcal(o.kcal) + " kcal</b>" +
-          "<span>P " + formatGrami(o.protein) + "</span>" +
-          "<span>UH " + formatGrami(o.ugljeni) + "</span>" +
-        "</span>" +
+        obrokMakroiHtml(o) +
       "</span>" +
     "</div>";
   }
@@ -1382,16 +1374,35 @@ function obrokIkonaSvg() {
     '<path d="M6 3v8a2 2 0 0 0 4 0V3M8 11v10M18 3c-1.7 1-2.5 3-2.5 5.5S16.3 13 18 13v8"/></svg>';
 }
 
+// Kartica zbira: velike kalorije levo, makroi desno. Koristi je i Kilaža
+// ("kcal danas") i Detalj dana ("kcal ukupno").
+function zbirObrokaHtml(zbir, oznakaKcal) {
+  return '<div class="obrok-zbir">' +
+    '<div class="obrok-zbir-glavno"><b>' + formatKcal(zbir.kcal) + "</b><small>" + oznakaKcal + "</small></div>" +
+    '<div class="obrok-zbir-makroi">' +
+      "<span><b>" + formatGrami(zbir.protein) + "</b><small>proteini</small></span>" +
+      "<span><b>" + formatGrami(zbir.ugljeni) + "</b><small>ugljeni h.</small></span>" +
+      "<span><b>" + formatGrami(zbir.masti) + "</b><small>masti</small></span>" +
+    "</div>" +
+  "</div>";
+}
+
+// Makroi jednog obroka (P / UH / M) — isti red se koristi na Kilaži i u Detalju.
+function obrokMakroiHtml(o) {
+  return '<span class="obrok-makroi">' +
+    "<b>" + formatKcal(o.kcal) + " kcal</b>" +
+    "<span>P " + formatGrami(o.protein) + "</span>" +
+    "<span>UH " + formatGrami(o.ugljeni) + "</span>" +
+    "<span>M " + formatGrami(o.masti || 0) + "</span>" +
+  "</span>";
+}
+
 // Jedan red obroka u listi (opis + makroi + dugme za brisanje).
 function obrokRedHtml(o) {
   return '<div class="obrok-red" data-id="' + o.id + '">' +
     '<span class="obrok-info">' +
       '<span class="obrok-opis">' + escapeHtml(o.opis) + "</span>" +
-      '<span class="obrok-makroi">' +
-        "<b>" + formatKcal(o.kcal) + " kcal</b>" +
-        "<span>P " + formatGrami(o.protein) + "</span>" +
-        "<span>UH " + formatGrami(o.ugljeni) + "</span>" +
-      "</span>" +
+      obrokMakroiHtml(o) +
     "</span>" +
     '<button class="obrok-obrisi" title="Obriši obrok" aria-label="Obriši obrok">×</button>' +
   "</div>";
@@ -1411,13 +1422,7 @@ function renderObrociHtml() {
     '<span class="desno">' + zbir.broj + " " + recObroka(zbir.broj) + "</span></p>";
 
   // Zbir dana — prikazujemo ga i kad je nula, da unos ima jasan cilj.
-  html += '<div class="obrok-zbir">' +
-    '<div class="obrok-zbir-glavno"><b>' + formatKcal(zbir.kcal) + "</b><small>kcal danas</small></div>" +
-    '<div class="obrok-zbir-makroi">' +
-      '<span><b>' + formatGrami(zbir.protein) + "</b><small>proteini</small></span>" +
-      '<span><b>' + formatGrami(zbir.ugljeni) + "</b><small>ugljeni h.</small></span>" +
-    "</div>" +
-  "</div>";
+  html += zbirObrokaHtml(zbir, "kcal danas");
 
   if (obroci.length) {
     html += '<div class="lista obroci-lista">';
@@ -1432,6 +1437,7 @@ function renderObrociHtml() {
       '<label>kcal <input class="obrok-kcal" type="text" inputmode="numeric" placeholder="0" value="' + escapeHtml(d.kcal) + '"></label>' +
       '<label>P (g) <input class="obrok-protein" type="text" inputmode="numeric" placeholder="0" value="' + escapeHtml(d.protein) + '"></label>' +
       '<label>UH (g) <input class="obrok-ugljeni" type="text" inputmode="numeric" placeholder="0" value="' + escapeHtml(d.ugljeni) + '"></label>' +
+      '<label>M (g) <input class="obrok-masti" type="text" inputmode="numeric" placeholder="0" value="' + escapeHtml(d.masti) + '"></label>' +
     "</div>" +
     '<button class="obrok-dodaj glavno-dugme">+ Dodaj obrok</button>' +
   "</div>";
@@ -1463,7 +1469,8 @@ function poveziObroke(kontejner) {
     [".obrok-opis-polje", "opis"],
     [".obrok-kcal", "kcal"],
     [".obrok-protein", "protein"],
-    [".obrok-ugljeni", "ugljeni"]
+    [".obrok-ugljeni", "ugljeni"],
+    [".obrok-masti", "masti"]
   ];
   polja.forEach(function (par) {
     var el = kontejner.querySelector(par[0]);
@@ -1479,8 +1486,9 @@ function poveziObroke(kontejner) {
     var kcal = brojIzPolja(d.kcal);
     var protein = brojIzPolja(d.protein);
     var ugljeni = brojIzPolja(d.ugljeni);
-    if (kcal === null || protein === null || ugljeni === null) {
-      alert("Kalorije, proteini i ugljeni hidrati moraju biti brojevi (0 ili više).");
+    var masti = brojIzPolja(d.masti);
+    if (kcal === null || protein === null || ugljeni === null || masti === null) {
+      alert("Kalorije, proteini, ugljeni hidrati i masti moraju biti brojevi (0 ili više).");
       return;
     }
 
@@ -1490,10 +1498,11 @@ function poveziObroke(kontejner) {
       kcal: kcal,
       protein: protein,
       ugljeni: ugljeni,
+      masti: masti,
       upisan: Date.now()
     });
 
-    stanje.obrokDraft = { opis: "", kcal: "", protein: "", ugljeni: "" };
+    stanje.obrokDraft = { opis: "", kcal: "", protein: "", ugljeni: "", masti: "" };
     renderKilaza();
   });
 

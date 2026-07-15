@@ -22,7 +22,8 @@
  *       obaveze:     [ { id, naziv, checkedAt: timestamp_ms | null } ],
  *       treninzi:    [ { id, naziv, od: "17:30", do: "18:40",
  *                        linije: "slobodan tekst\npo redu", tezina: 1-5, beleska } ],
- *       obroci:      [ { id, opis, kcal, protein, ugljeni, upisan: timestamp_ms } ],
+ *       obroci:      [ { id, opis, kcal, protein, ugljeni, masti,
+ *                        upisan: timestamp_ms } ],   // masti: stariji unosi ih nemaju
  *       ocena:       0,     // ocena dana 0–5 (opciono; 0 = neocenjeno)
  *       beleska:     ""     // beleška o danu (opciono)
  *     }

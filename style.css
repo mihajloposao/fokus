@@ -1992,12 +1992,14 @@ input:focus {
   border-radius: 12px;
 }
 
+/* Kalorije namerno u neutralnom "ink" tonu — broj sam po sebi nije ni
+   dobar ni loš, pa ga ne bojimo zeleno. */
 .obrok-zbir-glavno b {
   display: block;
   font-size: 24px;
   font-weight: 700;
   line-height: 1.1;
-  color: var(--obrok);
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2007,15 +2009,16 @@ input:focus {
   color: var(--ink-blago);
 }
 
+/* Tri makroa desno od velikih kalorija — uži razmak da stanu na telefonu. */
 .obrok-zbir-makroi {
   display: flex;
-  gap: 18px;
+  gap: 13px;
   text-align: right;
 }
 
 .obrok-zbir-makroi b {
   display: block;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -2065,7 +2068,7 @@ input:focus {
 }
 
 .obrok-makroi b {
-  color: var(--obrok);
+  color: var(--ink);
   font-weight: 700;
 }
 
@@ -2077,16 +2080,30 @@ input:focus {
   flex-shrink: 0;
 }
 
-/* Forma: opis pa tri uska brojčana polja u jednom redu */
+/* Forma: opis, pa četiri brojčana polja u mreži. Labela ide IZNAD polja —
+   sa četiri kolone nema mesta da stoji pored njega na uskom telefonu. */
+.obrok-forma .obrok-brojevi {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  align-items: end;
+}
+
 .obrok-forma .obrok-brojevi label {
-  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 4px;
-  font-size: 12px;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  min-width: 0;
 }
 
 .obrok-forma .obrok-brojevi input {
   width: 100%;
   min-width: 0;
+  text-align: center;
+  padding-left: 4px;
+  padding-right: 4px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2095,7 +2112,7 @@ input:focus {
   display: block;
   margin-top: 5px;
   font-size: 11px;
-  color: var(--obrok);
+  color: var(--ink-blago);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
