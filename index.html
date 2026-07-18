@@ -118,13 +118,18 @@
     <div class="kartica-forma">
       <div id="biranje-boje" class="biranje-boje"></div>
       <input id="stavka-naziv" type="text" placeholder="Nova stavka..." maxlength="40">
+      <div class="tip-birac" id="stavka-tip">
+        <button type="button" class="tip-dugme" data-tip="cilj">≥ min. cilj</button>
+        <button type="button" class="tip-dugme" data-tip="limit">≤ maks. limit</button>
+      </div>
       <div class="red-polja">
-        <label>cilj
+        <label>vreme
           <input id="stavka-sati" type="number" min="0" max="23" placeholder="h" inputmode="numeric">
           <input id="stavka-minuti" type="number" min="0" max="59" placeholder="min" inputmode="numeric">
         </label>
         <button id="stavka-dodaj" class="malo-dugme tamno">Dodaj</button>
       </div>
+      <p class="tip-hint" id="stavka-tip-hint"></p>
     </div>
 
     <p class="naslov-sekcije">

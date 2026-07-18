@@ -34,6 +34,7 @@ var stanje = {
   mesecOffset: 0,             // 0 = tekući mesec u Istoriji, -1 = prethodni...
   formaDogadjajOtvorena: false, // da li je otvorena forma za novi fiksni događaj
   novaBoja: PALETA[0],        // izabrana boja za novu stavku na Plan ekranu
+  novaStavkaLimit: false,     // za novu stavku: false = min. cilj, true = maks. limit
   ocenaOtvorena: false        // da li je editor ocene dana raširen (Detalj ekran)
 };
 
@@ -173,13 +174,22 @@ function ukupnoCiljaDana(datum) {
   return ukupno;
 }
 
-// Broj završenih jedinica dana: stavke koje su dostigle cilj + čekirane obaveze.
+// Da li je stavka "ispunjena" za dati broj odrađenih minuta.
+//   - obična stavka (cilj/minimum): ispunjena kad DOSTIGNE cilj;
+//   - limit stavka (maksimum): ispunjena dok je NA ili ISPOD limita
+//     (probijanje limita je loše — nije ispunjena).
+function stavkaIspunjena(stavka, minuti) {
+  if (stavka.limit) return minuti <= stavka.ciljMinuta;
+  return minuti >= stavka.ciljMinuta;
+}
+
+// Broj završenih jedinica dana: stavke koje su ispunjene + čekirane obaveze.
 // (Čekirana obaveza računa se kao ispunjena stavka.)
 function brojZavrsenih(datum, sada) {
   var dan = ucitajDan(datum);
   var broj = 0;
   for (var i = 0; i < dan.items.length; i++) {
-    if (minutiStavke(datum, dan.items[i].id, sada) >= dan.items[i].ciljMinuta) {
+    if (stavkaIspunjena(dan.items[i], minutiStavke(datum, dan.items[i].id, sada))) {
       broj++;
     }
   }
@@ -221,8 +231,14 @@ function procenatDana(datum) {
   var sada = Date.now();
   var zbir = 0;
   for (var i = 0; i < dan.items.length; i++) {
-    var odnos = minutiStavke(datum, dan.items[i].id, sada) / dan.items[i].ciljMinuta;
-    zbir += Math.min(odnos, 1);
+    var it = dan.items[i];
+    var min = minutiStavke(datum, it.id, sada);
+    // Limit stavka: pun doprinos dok si ispod limita, opada kad ga probiješ.
+    // Obična stavka: doprinos = odrađeno/cilj (ograničeno na 1).
+    var odnos = it.limit
+      ? Math.min(it.ciljMinuta / Math.max(min, 1), 1)
+      : Math.min(min / it.ciljMinuta, 1);
+    zbir += odnos;
   }
   var obaveze = dan.obaveze || [];
   for (var j = 0; j < obaveze.length; j++) {
@@ -429,29 +445,44 @@ function renderListuStavkiDanas(datum, sada) {
   }
 
   // HTML jednog reda stavke sa tajmerom (play/pauza + napredak).
+  // Dve vrste: obična (cilj/min) i limit (maks) — kod limita probijanje je loše.
   function stavkaHtml(stavka) {
     var odradjeno = minutiStavke(datum, stavka.id, sada);
-    var zavrsena = odradjeno >= stavka.ciljMinuta;
     var ovaRadi = tajmer !== null && tajmer.itemId === stavka.id && tajmer.start !== null;
 
-    // Završena stavka prikazuje višak ("+12m"), ostale "odrađeno/cilj".
-    var desno;
-    if (zavrsena) {
-      var visak = Math.round(odradjeno - stavka.ciljMinuta);
-      desno = visak > 0 ? "+" + formatKratko(visak) : "✓";
+    var desno, dotHtml, klasa = "";
+    if (stavka.limit) {
+      var preko = odradjeno > stavka.ciljMinuta;
+      if (preko) {
+        desno = "+" + formatKratko(odradjeno - stavka.ciljMinuta) + " preko";
+        dotHtml = '<span class="dot preko">!</span>';
+        klasa = " prekoraceno";
+      } else {
+        desno = formatKratko(odradjeno) + "/" + formatKratko(stavka.ciljMinuta);
+        dotHtml = '<span class="dot" style="background:' + stavka.boja + '"></span>';
+        klasa = " limit-ok";
+      }
     } else {
-      desno = formatKratko(odradjeno) + "/" + formatKratko(stavka.ciljMinuta);
+      var zavrsena = odradjeno >= stavka.ciljMinuta;
+      if (zavrsena) {
+        var visak = Math.round(odradjeno - stavka.ciljMinuta);
+        desno = visak > 0 ? "+" + formatKratko(visak) : "✓";
+        dotHtml = '<span class="dot kvacica" style="background:' + stavka.boja + '">✓</span>';
+        klasa = " zavrsena";
+      } else {
+        desno = formatKratko(odradjeno) + "/" + formatKratko(stavka.ciljMinuta);
+        dotHtml = '<span class="dot" style="background:' + stavka.boja + '"></span>';
+      }
     }
 
-    return '<div class="stavka-red' + (zavrsena ? " zavrsena" : "") + (ovaRadi ? " aktivna" : "") + '">' +
+    return '<div class="stavka-red' + klasa + (ovaRadi ? " aktivna" : "") + '">' +
         '<button class="play-dugme" data-item="' + stavka.id + '" style="' +
           (ovaRadi ? "background:" + stavka.boja : "") + '" title="' + (ovaRadi ? "Pauziraj" : "Pokreni") + '">' +
           (ovaRadi ? "❙❙" : "▶") +
         "</button>" +
-        (zavrsena
-          ? '<span class="dot kvacica" style="background:' + stavka.boja + '">✓</span>'
-          : '<span class="dot" style="background:' + stavka.boja + '"></span>') +
-        '<span class="stavka-naziv">' + escapeHtml(stavka.naziv) + "</span>" +
+        dotHtml +
+        '<span class="stavka-naziv">' + escapeHtml(stavka.naziv) +
+          (stavka.limit ? ' <span class="limit-tag">maks</span>' : "") + "</span>" +
         '<span class="stavka-vreme">' + desno + "</span>" +
       "</div>";
   }
@@ -470,11 +501,13 @@ function renderListuStavkiDanas(datum, sada) {
   }
 
   // Podeli u nedovršeno / završeno, čuvajući redosled (prvo stavke, pa obaveze).
+  // Limit stavke uvek ostaju gore (u glavnoj listi) — "ispod limita" nije isto
+  // što i "završeno", pa ih ne selimo u ZAVRŠENO ni kad si ispod limita.
   var nedovrseno = "";
   var zavrseno = "";
   for (var i = 0; i < dan.items.length; i++) {
     var s = dan.items[i];
-    if (minutiStavke(datum, s.id, sada) >= s.ciljMinuta) zavrseno += stavkaHtml(s);
+    if (!s.limit && minutiStavke(datum, s.id, sada) >= s.ciljMinuta) zavrseno += stavkaHtml(s);
     else nedovrseno += stavkaHtml(s);
   }
   for (var j = 0; j < obaveze.length; j++) {
@@ -512,15 +545,6 @@ function rasponTrake(datum, sada) {
   for (var j = 0; j < dan.sessions.length; j++) {
     min = Math.min(min, timestampUMinute(dan.sessions[j].start));
     max = Math.max(max, timestampUMinute(dan.sessions[j].end));
-  }
-  // Čekirane obaveze (markeri na traci) takođe šire raspon.
-  var obaveze = dan.obaveze || [];
-  for (var o = 0; o < obaveze.length; o++) {
-    if (obaveze[o].checkedAt) {
-      var t = timestampUMinute(obaveze[o].checkedAt);
-      min = Math.min(min, t);
-      max = Math.max(max, t);
-    }
   }
   var tajmer = ucitajAktivniTajmer();
   if (tajmer !== null && tajmer.datum === datum && tajmer.start !== null) {
@@ -624,12 +648,15 @@ function renderPlanStavke(dan) {
 
   for (var i = 0; i < dan.items.length; i++) {
     var stavka = dan.items[i];
+    // "≤" za limit (maksimum), "≥" za običan cilj (minimum).
+    var znak = stavka.limit ? "≤ " : "≥ ";
     html +=
       '<div class="stavka-red">' +
         '<span class="dot" style="background:' + stavka.boja + '"></span>' +
-        '<span class="stavka-naziv">' + escapeHtml(stavka.naziv) + "</span>" +
+        '<span class="stavka-naziv">' + escapeHtml(stavka.naziv) +
+          (stavka.limit ? ' <span class="limit-tag">maks</span>' : "") + "</span>" +
         '<span class="cilj-oznaka" style="background:' + stavka.boja + '22;color:' + stavka.boja + '">' +
-          formatKratko(stavka.ciljMinuta) +
+          znak + formatKratko(stavka.ciljMinuta) +
         "</span>" +
         '<button class="obrisi-dugme" data-id="' + stavka.id + '" title="Obriši">×</button>' +
       "</div>";
@@ -654,6 +681,25 @@ function renderPlanStavke(dan) {
     stanje.novaBoja = this.dataset.boja;
     renderPlanStavke(ucitajDan(stanje.planDatum));
   });
+
+  azurirajStavkaTip();
+}
+
+// Sinhronizuje "min. cilj / maks. limit" prekidač sa stanjem (klase + objašnjenje).
+function azurirajStavkaTip() {
+  var birac = document.getElementById("stavka-tip");
+  if (!birac) return;
+  var dugmad = birac.querySelectorAll(".tip-dugme");
+  for (var i = 0; i < dugmad.length; i++) {
+    var jeLimit = dugmad[i].dataset.tip === "limit";
+    dugmad[i].classList.toggle("on", jeLimit === stanje.novaStavkaLimit);
+  }
+  var hint = document.getElementById("stavka-tip-hint");
+  if (hint) {
+    hint.textContent = stanje.novaStavkaLimit
+      ? "Maksimum — cilj je ostati ISPOD ovog vremena (npr. telefon maks 1h)."
+      : "Minimum — cilj je DOSTIĆI ovo vreme (npr. učenje bar 4h).";
+  }
 }
 
 /* ===================== RENDER: ISTORIJA ===================== */
@@ -900,6 +946,16 @@ function renderOcenaDana(datum) {
 // vremenu kad su rađeni. Koristi se na dva mesta:
 //   - Danas ekran (zivo = true): dodaje blok sesije u toku i crvenu "sada" liniju.
 //   - Detalj dana (zivo = false): read-only istorijski prikaz.
+// Oznaka pored naziva na traci: ✓ kad je cilj dostignut (obična stavka),
+// "!" kad je limit probijen (limit stavka). Prazno u ostalim slučajevima.
+function stavkaOznaka(stavka, minuti, boja) {
+  if (stavka.limit) {
+    return minuti > stavka.ciljMinuta ? ' <span class="cek preko">!</span>' : "";
+  }
+  return minuti >= stavka.ciljMinuta
+    ? ' <span class="cek" style="color:' + boja + '">✓</span>' : "";
+}
+
 function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
   var dan = ucitajDan(datum);
   var raspon = rasponTrake(datum, sada);
@@ -930,22 +986,37 @@ function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
     });
   }
 
-  for (var j = 0; j < dan.sessions.length; j++) {
-    var s = dan.sessions[j];
-    var stavka = nadjiStavku(datum, s.itemId);
+  // Spoji uzastopne sesije ISTE stavke razdvojene kratkom pauzom (pauziraš pa
+  // brzo nastaviš) u jedan blok. Blok se proteže od početka prve do kraja
+  // poslednje, ali prikazano vreme je ZBIR stvarnog rada (pauze se ne broje).
+  var SPOJ_PRAG_MS = 20 * 60000; // pauza do 20 min = i dalje isti blok
+  var sesije = dan.sessions.slice().sort(function (a, b) { return a.start - b.start; });
+  var grupe = [];
+  for (var j = 0; j < sesije.length; j++) {
+    var s = sesije[j];
+    var pret = grupe.length ? grupe[grupe.length - 1] : null;
+    if (pret && pret.itemId === s.itemId && (s.start - pret.end) <= SPOJ_PRAG_MS) {
+      pret.end = s.end;                 // produži blok do kraja ove sesije
+      pret.radMs += s.end - s.start;    // ali rad je zbir, bez pauze između
+    } else {
+      grupe.push({ itemId: s.itemId, start: s.start, end: s.end, radMs: s.end - s.start });
+    }
+  }
+
+  for (var g = 0; g < grupe.length; g++) {
+    var gr = grupe[g];
+    var stavka = nadjiStavku(datum, gr.itemId);
     if (stavka === null) continue;
-    var sTop = vrh(timestampUMinute(s.start));
-    var trajanjeMin = Math.round((s.end - s.start) / 60000);
-    // Kvačica ako je stavka (ukupno danas) dostigla svoj cilj.
-    var zavrsena = minutiStavke(datum, stavka.id, sada) >= stavka.ciljMinuta;
+    var sTop = vrh(timestampUMinute(gr.start));
+    var radMin = Math.round(gr.radMs / 60000);
     blokovi.push({
       top: sTop,
-      visina: Math.max(vrh(timestampUMinute(s.end)) - sTop, MIN_VISINA),
+      visina: Math.max(vrh(timestampUMinute(gr.end)) - sTop, MIN_VISINA),
       klasa: "sesija",
       boja: stavka.boja,
       naslov: escapeHtml(stavka.naziv) +
-        (zavrsena ? ' <span class="cek" style="color:' + stavka.boja + '">✓</span>' : ""),
-      podnaslov: formatSatMinut(s.start) + "–" + formatSatMinut(s.end) + " · " + formatTrajanje(trajanjeMin)
+        stavkaOznaka(stavka, minutiStavke(datum, stavka.id, sada), stavka.boja),
+      podnaslov: formatSatMinut(gr.start) + "–" + formatSatMinut(gr.end) + " · " + formatTrajanje(radMin)
     });
   }
 
@@ -1010,20 +1081,8 @@ function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
       "</div>";
   }
 
-  // Čekirane obaveze: tanka isprekidana linija preko cele širine u tačnom
-  // trenutku čekiranja (dizajn "obaveze" 2a).
-  var obaveze = dan.obaveze || [];
-  for (var o = 0; o < obaveze.length; o++) {
-    var ob = obaveze[o];
-    if (!ob.checkedAt) continue;
-    html +=
-      '<div class="vtraka-obaveza" style="top:' + vrh(timestampUMinute(ob.checkedAt)) + 'px">' +
-        '<span class="knob">✓</span>' +
-        '<span class="rule"></span>' +
-        '<span class="lab">' + escapeHtml(ob.naziv) +
-          " <small>" + formatSatMinut(ob.checkedAt) + "</small></span>" +
-      "</div>";
-  }
+  // (Čekirane obaveze se namerno NE prikazuju na traci — samo se čekiraju
+  //  u listi. Traka prikazuje isključivo mereno vreme i fiksne događaje.)
 
   if (zivo) {
     var sadaMin = timestampUMinute(sada);
@@ -1089,11 +1148,16 @@ function renderCiljVsOdradjeno(datum, sada) {
     var stavka = dan.items[i];
     var odradjeno = minutiStavke(datum, stavka.id, sada);
     var odnos = Math.min(odradjeno / stavka.ciljMinuta, 1);
+    // Limit stavka: traka je crvena ako je probijen limit; naziv dobija "maks".
+    var preko = stavka.limit && odradjeno > stavka.ciljMinuta;
+    var bojaTrake = preko ? "#c0392b" : stavka.boja;
     html +=
       '<div class="poredjenje-red">' +
-        '<span class="poredjenje-naziv" style="color:' + stavka.boja + '">' + escapeHtml(stavka.naziv) + "</span>" +
-        '<span class="poredjenje-traka"><span style="width:' + odnos * 100 + "%;background:" + stavka.boja + '"></span></span>' +
-        '<span class="poredjenje-brojevi">' + formatKratko(odradjeno) + "/" + formatKratko(stavka.ciljMinuta) + "</span>" +
+        '<span class="poredjenje-naziv" style="color:' + stavka.boja + '">' + escapeHtml(stavka.naziv) +
+          (stavka.limit ? ' <span class="limit-tag">maks</span>' : "") + "</span>" +
+        '<span class="poredjenje-traka"><span style="width:' + odnos * 100 + "%;background:" + bojaTrake + '"></span></span>' +
+        '<span class="poredjenje-brojevi' + (preko ? " preko" : "") + '">' +
+          formatKratko(odradjeno) + "/" + formatKratko(stavka.ciljMinuta) + "</span>" +
       "</div>";
   }
 
@@ -1190,13 +1254,15 @@ function dodajStavku() {
     id: noviId(),
     naziv: naziv,
     boja: stanje.novaBoja,
-    ciljMinuta: cilj
+    ciljMinuta: cilj,
+    limit: stanje.novaStavkaLimit   // true = maksimum (limit), false = minimum (cilj)
   });
   sacuvajDan(stanje.planDatum, dan);
 
   document.getElementById("stavka-naziv").value = "";
   document.getElementById("stavka-sati").value = "";
   document.getElementById("stavka-minuti").value = "";
+  stanje.novaStavkaLimit = false;   // vrati na "cilj" za sledeću stavku
   renderPlan();
 }
 
@@ -1322,6 +1388,12 @@ function init() {
   // Plan: nove stavke i čuvanje.
   document.getElementById("stavka-dodaj").addEventListener("click", dodajStavku);
   document.getElementById("dugme-sacuvaj-plan").addEventListener("click", sacuvajPlanKlik);
+
+  // Plan: prekidač "min. cilj / maks. limit" za novu stavku.
+  poveziKlik(document.getElementById("stavka-tip"), ".tip-dugme", function () {
+    stanje.novaStavkaLimit = this.dataset.tip === "limit";
+    azurirajStavkaTip();
+  });
 
   // Plan: nove obaveze (Enter u polju takođe dodaje).
   document.getElementById("obaveza-dodaj").addEventListener("click", dodajObavezuKlik);
