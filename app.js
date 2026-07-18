@@ -34,16 +34,7 @@ var stanje = {
   mesecOffset: 0,             // 0 = tekući mesec u Istoriji, -1 = prethodni...
   formaDogadjajOtvorena: false, // da li je otvorena forma za novi fiksni događaj
   novaBoja: PALETA[0],        // izabrana boja za novu stavku na Plan ekranu
-  ocenaOtvorena: false,       // da li je editor ocene dana raširen (Detalj ekran)
-  kilazaOpseg: "30d",         // opseg grafika kilaže: 7d | 30d | sve
-  kilazaDraft: null,          // vrednost u steperu (kg) pre čuvanja; null = tek otvoreno
-  kilazaSacuvano: false,      // prolazno: "Sačuvano ✓" posle upisa
-  treningTezina: 3,           // izabrana težina (1–5) u formi za novi trening
-  treningDatum: null,         // datum treninga otvorenog na Trening ekranu
-  treningId: null,            // id treninga otvorenog na Trening ekranu
-  // Draft forme za obrok (Kilaža). Čuva se u stanju da se ne izgubi kad
-  // renderKilaza ponovo iscrta ekran (npr. posle koraka na steperu).
-  obrokDraft: { opis: "", kcal: "", protein: "", ugljeni: "", masti: "" }
+  ocenaOtvorena: false        // da li je editor ocene dana raširen (Detalj ekran)
 };
 
 /* ===================== DATUMI ===================== */
@@ -62,7 +53,7 @@ function danasKey() {
 }
 
 // Jedinstven id (vreme + slučajni deo) — dovoljno za jednokorisničku app.
-// Koristi se za stavke, obaveze i treninge.
+// Koristi se za stavke i obaveze.
 function noviId() {
   return Date.now() + "-" + Math.random().toString(36).slice(2, 8);
 }
@@ -299,15 +290,8 @@ function prikaziSekciju(naziv) {
     sekcije[i].hidden = sekcije[i].id !== "sekcija-" + naziv;
   }
 
-  // Svaki ulazak na Kilažu kreće sa skupljenim/neizmenjenim steperom i
-  // opsegom po izboru — draft se re-inicijalizuje iz podataka pri renderu.
-  if (naziv === "kilaza") {
-    stanje.kilazaDraft = null;
-    stanje.kilazaSacuvano = false;
-  }
-
-  // Bottom nav: "detalj" nije tab (ostaje Istorija), "trening" ostaje Plan.
-  var navTab = naziv === "detalj" ? "istorija" : (naziv === "trening" ? "plan" : naziv);
+  // Bottom nav: "detalj" nije tab (ostaje Istorija).
+  var navTab = naziv === "detalj" ? "istorija" : naziv;
   var dugmad = document.querySelectorAll(".nav-dugme");
   for (var j = 0; j < dugmad.length; j++) {
     dugmad[j].classList.toggle("aktivan", dugmad[j].dataset.sekcija === navTab);
@@ -322,19 +306,6 @@ function osveziAktivnuSekciju() {
   if (stanje.sekcija === "plan") renderPlan();
   if (stanje.sekcija === "istorija") renderIstorija();
   if (stanje.sekcija === "detalj") renderDetalj();
-  // DEO 2 (kilaža/trening ekrani) — samo ako je kilaza-trening.js učitan.
-  if (deo2Aktivan()) {
-    if (stanje.sekcija === "kilaza") renderKilaza();
-    if (stanje.sekcija === "trening") renderTrening();
-  }
-}
-
-// Da li je DEO 2 (kilaza-trening.js: kilaža + trening + obroci) učitan?
-// Taj fajl se podrazumevano NE učitava (vidi index.html), pa ovo vraća false
-// i cela aplikacija prikazuje samo planove. Kad se skripta uključi, sve kuke
-// razbacane po app.js-u (ova provera) same ožive — app.js ne treba menjati.
-function deo2Aktivan() {
-  return typeof renderKilaza === "function";
 }
 
 // Kači "click" handler na sve elemente koji odgovaraju selektoru unutar
@@ -551,12 +522,6 @@ function rasponTrake(datum, sada) {
       max = Math.max(max, t);
     }
   }
-  // Treninzi (blokovi na traci) šire raspon svojim terminom — samo dok je DEO 2 uključen.
-  var treninzi = deo2Aktivan() ? (dan.treninzi || []) : [];
-  for (var w = 0; w < treninzi.length; w++) {
-    min = Math.min(min, vremeUMinute(treninzi[w].od));
-    max = Math.max(max, vremeUMinute(treninzi[w].do));
-  }
   var tajmer = ucitajAktivniTajmer();
   if (tajmer !== null && tajmer.datum === datum && tajmer.start !== null) {
     min = Math.min(min, timestampUMinute(tajmer.start));
@@ -587,7 +552,6 @@ function renderPlan() {
   renderFiksneDogadjaje(dan);
   renderPlanStavke(dan);
   renderPlanObaveze(dan);
-  if (deo2Aktivan()) renderPlanTreninzi(dan);
 
   // "Ukupno planirano": vreme ciljeva + broj obaveza (koje nemaju cilj).
   var ukupnoTekst = formatTrajanje(ukupnoCiljaDana(datum));
@@ -741,9 +705,9 @@ function renderKalendar(godina, mesec) {
   }
   kontejner.innerHTML = html;
 
-  // Klik na dan sa planom (ili bar upisanim obrocima) otvara Detalj dana.
+  // Klik na dan sa planom otvara Detalj dana.
   poveziKlik(kontejner, ".kal-dan", function () {
-    if (danImaPlan(this.dataset.datum) || (deo2Aktivan() && danImaObroke(this.dataset.datum))) {
+    if (danImaPlan(this.dataset.datum)) {
       otvoriDetalj(this.dataset.datum);
     }
   });
@@ -758,13 +722,10 @@ function renderPoslednjeDane() {
   var kljuc = danasKey();
 
   for (var i = 0; i < 14; i++) {
-    // Dan sa samo obrocima (bez plana) takođe ulazi u listu — da se kalorije
-    // vide i za dane kad ništa nije planirano.
-    if (danImaPlan(kljuc) || (deo2Aktivan() && danImaObroke(kljuc))) {
+    if (danImaPlan(kljuc)) {
       var dan = ucitajDan(kljuc);
       var d = datumIzKljuca(kljuc);
       var zavrseno = brojZavrsenih(kljuc, sada);
-      var zbir = deo2Aktivan() ? zbirObroka(kljuc) : { kcal: 0, protein: 0, ugljeni: 0, masti: 0, broj: 0 };
 
       // Mini trake: po jedna linija za svaku stavku, širina = odrađeno/cilj.
       var trake = "";
@@ -776,20 +737,13 @@ function renderPoslednjeDane() {
           "</span>";
       }
 
-      var naslovRed = danImaPlan(kljuc)
-        ? zavrseno + " od " + brojJedinica(kljuc) + " gotovo"
-        : "bez plana";
-
       html +=
         '<button class="dan-red" data-datum="' + kljuc + '">' +
           '<span class="dan-broj">' + String(d.getDate()).padStart(2, "0") +
             "<small>" + DANI_KRATKO[d.getDay()] + "</small></span>" +
           '<span class="dan-info">' +
-            "<strong>" + naslovRed + "</strong>" +
+            "<strong>" + zavrseno + " od " + brojJedinica(kljuc) + " gotovo</strong>" +
             '<span class="mini-trake">' + trake + "</span>" +
-            (zbir.broj
-              ? '<span class="dan-kcal">' + formatKcal(zbir.kcal) + " kcal · " + zbir.broj + " " + recObroka(zbir.broj) + "</span>"
-              : "") +
           "</span>" +
           '<span class="dan-vreme">' + formatTrajanje(ukupnoMinutaDana(kljuc, sada)) + "</span>" +
         "</button>";
@@ -827,7 +781,6 @@ function renderDetalj() {
   renderOcenaDana(datum);
   renderVertikalnuTraku(document.getElementById("detalj-traka"), datum, sada, false);
   renderCiljVsOdradjeno(datum, sada);
-  if (deo2Aktivan()) renderDetaljObroke(datum);
 }
 
 
@@ -1016,26 +969,6 @@ function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
     }
   }
 
-  // Treninzi: bronzani blokovi sa tegovima (dizajn "trening") — samo dok je DEO 2
-  // (kilaza-trening.js) uključen; inače se treninzi ne prikazuju na traci.
-  var treninzi = deo2Aktivan() ? (dan.treninzi || []) : [];
-  for (var w = 0; w < treninzi.length; w++) {
-    var tr = treninzi[w];
-    var trTop = vrh(vremeUMinute(tr.od));
-    blokovi.push({
-      top: trTop,
-      visina: Math.max(vrh(vremeUMinute(tr.do)) - trTop, MIN_VISINA),
-      klasa: "trening",
-      boja: null,
-      html:
-        '<div class="trening-blok-info">' +
-          "<strong>" + treningIkonaSvg() + escapeHtml(tr.naziv) + "</strong>" +
-          "<small>" + tr.od + "–" + tr.do + " · " + formatTrajanje(treningMinuta(tr)) + "</small>" +
-        "</div>" +
-        tegoviHtml(tr.tezina, "teg-mini")
-    });
-  }
-
   // 2) Rasporedi blokove u kolone da se preklapajući prikazuju jedan pored drugog.
   rasporediUKolone(blokovi);
 
@@ -1068,12 +1001,12 @@ function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
         : "border-left-color:" + blok.boja + ";background:" + blok.boja + "15;";
     }
 
-    // Trening blok ima svoj raspored (bronza + tegovi), ostali klasičan strong/small.
-    var kompakt = blok.klasa.indexOf("trening") === -1 && blok.visina < KOMPAKT_PRAG;
+    // Niži blokovi prikazuju naziv i vreme u jednom (kompaktnom) redu.
+    var kompakt = blok.visina < KOMPAKT_PRAG;
     html +=
       '<div class="vtraka-blok ' + blok.klasa + (kompakt ? " kompakt" : "") +
         '" style="' + stil + '">' +
-        (blok.html ? blok.html : "<strong>" + blok.naslov + "</strong><small>" + blok.podnaslov + "</small>") +
+        "<strong>" + blok.naslov + "</strong><small>" + blok.podnaslov + "</small>" +
       "</div>";
   }
 
@@ -1395,13 +1328,6 @@ function init() {
   document.getElementById("obaveza-naziv").addEventListener("keydown", function (e) {
     if (e.key === "Enter") dodajObavezuKlik();
   });
-
-  // Plan: novi trening — samo dok je DEO 2 uključen (dugme inače ne postoji u HTML-u).
-  // (Teg-birač se povezuje u crtajTegBirac pri svakom renderu.)
-  var treningDodajBtn = document.getElementById("trening-dodaj");
-  if (treningDodajBtn && deo2Aktivan()) {
-    treningDodajBtn.addEventListener("click", dodajTreningKlik);
-  }
 
   // Istorija: listanje meseci.
   document.getElementById("mesec-nazad").addEventListener("click", function () {

@@ -20,10 +20,6 @@
  *       items:       [ { id, naziv, boja, ciljMinuta } ],
  *       sessions:    [ { itemId, start: timestamp_ms, end: timestamp_ms } ],
  *       obaveze:     [ { id, naziv, checkedAt: timestamp_ms | null } ],
- *       treninzi:    [ { id, naziv, od: "17:30", do: "18:40",
- *                        linije: "slobodan tekst\npo redu", tezina: 1-5, beleska } ],
- *       obroci:      [ { id, opis, kcal, protein, ugljeni, masti,
- *                        upisan: timestamp_ms } ],   // masti: stariji unosi ih nemaju
  *       ocena:       0,     // ocena dana 0–5 (opciono; 0 = neocenjeno)
  *       beleska:     ""     // beleška o danu (opciono)
  *     }
@@ -31,10 +27,6 @@
  *
  * Ključ "fokus-active-timer" — trenutno aktivan tajmer ili null:
  *   { itemId, datum, start: timestamp_ms | null, pausedElapsed: ms }
- *
- * Ključ "fokus-kilaza" — { unosi: { "YYYY-MM-DD": kg }, cilj: number | null,
- *   ciljBaza: number | null }  (ciljBaza = težina u trenutku postavljanja cilja,
- *   da se zna smer: mršavljenje ako je cilj ispod baze, gojenje ako je iznad)
  */
 
 /* ===================== SUPABASE KONFIGURACIJA ===================== */
@@ -50,7 +42,6 @@ var SUPABASE_TABELA = SUPABASE_URL + "/rest/v1/fokus_store";
 
 var KLJUC_PODACI = "fokus-data";
 var KLJUC_TAJMER = "fokus-active-timer";
-var KLJUC_KILAZA = "fokus-kilaza";
 
 // Keš drži vrednosti kao JSON stringove — tačno kao što je localStorage radio,
 // pa se ostatak fajla ponaša identično (parse pri čitanju, stringify pri upisu).
@@ -140,7 +131,7 @@ function ucitajSaServera() {
 // verzija), prebaci ga na server da se ništa ne izgubi.
 function migracijaIzLokala() {
   var poslovi = [];
-  [KLJUC_PODACI, KLJUC_TAJMER, KLJUC_KILAZA].forEach(function (key) {
+  [KLJUC_PODACI, KLJUC_TAJMER].forEach(function (key) {
     if (!kes.hasOwnProperty(key)) {
       var lok = localStorage.getItem(key);
       if (lok !== null) {
@@ -208,36 +199,6 @@ function danImaPlan(datum) {
   return dan.items.length > 0 || (dan.obaveze && dan.obaveze.length > 0);
 }
 
-/* ===================== OBROCI ===================== */
-
-// Obroci upisani za dati dan (prazan niz ako ih nema).
-function ucitajObroke(datum) {
-  var dan = ucitajDan(datum);
-  return dan.obroci || [];
-}
-
-// Da li dan ima bar jedan upisan obrok? Namerno odvojeno od danImaPlan —
-// obroci ne treba da utiču na streak/ocenu ispunjenja plana.
-function danImaObroke(datum) {
-  return ucitajObroke(datum).length > 0;
-}
-
-// Dodaje obrok u dati dan.
-function dodajObrok(datum, obrok) {
-  var dan = ucitajDan(datum);
-  if (!dan.obroci) dan.obroci = [];
-  dan.obroci.push(obrok);
-  sacuvajDan(datum, dan);
-}
-
-// Briše obrok iz datog dana po id-u.
-function obrisiObrok(datum, id) {
-  var dan = ucitajDan(datum);
-  if (!dan.obroci) return;
-  dan.obroci = dan.obroci.filter(function (o) { return o.id !== id; });
-  sacuvajDan(datum, dan);
-}
-
 /* ===================== AKTIVNI TAJMER ===================== */
 
 // Vraća aktivni tajmer ili null ako nijedan tajmer ne radi.
@@ -257,24 +218,4 @@ function sacuvajAktivniTajmer(tajmer) {
 // Briše aktivni tajmer (poziva se kad se tajmer zaustavi).
 function obrisiAktivniTajmer() {
   delStavka(KLJUC_TAJMER);
-}
-
-/* ===================== KILAŽA ===================== */
-
-// Učitava ceo objekat kilaže; ako ništa nije sačuvano, vraća prazan.
-function ucitajKilazu() {
-  var sirovo = getStavka(KLJUC_KILAZA);
-  if (sirovo === null) {
-    return { unosi: {}, cilj: null };
-  }
-  var o = JSON.parse(sirovo);
-  if (!o.unosi) o.unosi = {};
-  if (o.cilj === undefined) o.cilj = null;
-  if (o.ciljBaza === undefined) o.ciljBaza = null; // težina kad je cilj postavljen (za smer)
-  return o;
-}
-
-// Snima ceo objekat kilaže.
-function sacuvajKilazu(kilaza) {
-  setStavka(KLJUC_KILAZA, JSON.stringify(kilaza));
 }
