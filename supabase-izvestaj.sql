@@ -5,8 +5,8 @@
 -- izlaže kao REST endpoint:
 --
 --   GET https://pvlirqcojbpbvnlsqlmz.supabase.co/rest/v1/rpc/fokus_izvestaj
---         ?apikey=<publishable-kljuc>          (podrazumevano: 10 dana)
---         &broj_dana=30                        (opciono: drugi period)
+--         ?apikey=<publishable-kljuc>          (podrazumevano: SVI podaci)
+--         &broj_dana=30                        (opciono: suzi na poslednjih N dana)
 --
 -- Vraća jedan čitljiv JSON: po danima (stavke sa ciljem i odrađenim minutima,
 -- sesije, obaveze, treninzi, OBROCI + dnevni zbir kalorija, proteina,
@@ -19,7 +19,7 @@
 -- iz tabele fokus_store — ne otvara ništa novo.
 -- =============================================================================
 
-create or replace function public.fokus_izvestaj(broj_dana int default 10)
+create or replace function public.fokus_izvestaj(broj_dana int default null)
 returns jsonb
 language sql
 stable
@@ -39,11 +39,29 @@ kil as (
     '{"unosi":{},"cilj":null}'::jsonb
   ) as v
 ),
--- granice perioda: poslednjih N dana, računato u lokalnoj zoni
+-- granice perioda. Ako je broj_dana prosleđen (> 0): poslednjih N dana.
+-- Ako je NULL (podrazumevano): ceo raspon — od najranijeg unosa (u planovima
+-- ili kilaži) do danas (ili do najkasnijeg unosa ako je u budućnosti).
 granice as (
   select
-    (now() at time zone 'Europe/Belgrade')::date - (greatest(broj_dana, 1) - 1) as od,
-    (now() at time zone 'Europe/Belgrade')::date as dokle
+    case when broj_dana is not null and broj_dana > 0
+      then (now() at time zone 'Europe/Belgrade')::date - (broj_dana - 1)
+      else coalesce(mm.mn::date, (now() at time zone 'Europe/Belgrade')::date)
+    end as od,
+    case when broj_dana is not null and broj_dana > 0
+      then (now() at time zone 'Europe/Belgrade')::date
+      else greatest(coalesce(mm.mx::date, (now() at time zone 'Europe/Belgrade')::date),
+                    (now() at time zone 'Europe/Belgrade')::date)
+    end as dokle
+  from (
+    select min(k) as mn, max(k) as mx
+    from (
+      select jsonb_object_keys(podaci.v) as k from podaci
+      union all
+      select jsonb_object_keys(coalesce(kil.v -> 'unosi', '{}'::jsonb)) as k from kil
+    ) kljucevi
+    where k ~ '^\d{4}-\d{2}-\d{2}$'
+  ) mm
 ),
 dani as (
   select to_char(d, 'YYYY-MM-DD') as datum
@@ -180,8 +198,10 @@ ishrana_prosek as (
   from sastav
 )
 select jsonb_build_object(
-  'opis', 'Fokus izveštaj — aktivnosti, ishrana i kilaža za poslednjih '
-          || greatest(broj_dana, 1) || ' dana',
+  'opis', case when broj_dana is not null and broj_dana > 0
+    then 'Fokus izveštaj — aktivnosti, ishrana i kilaža za poslednjih '
+         || broj_dana || ' dana'
+    else 'Fokus izveštaj — svi podaci (aktivnosti, ishrana i kilaža)' end,
   'generisano', to_char(now() at time zone 'Europe/Belgrade', 'YYYY-MM-DD HH24:MI'),
   'period', (select jsonb_build_object(
       'od', to_char(od, 'YYYY-MM-DD'),
