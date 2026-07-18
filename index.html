@@ -141,6 +141,10 @@
       </div>
     </div>
 
+    <!-- DEO 2 (sakriveno): TRENING na Plan ekranu.
+         Kod je izdvojen u kilaza-trening.js, koji se ne učitava, pa se ovaj
+         blok ne prikazuje. Da ga vratiš: otkomentariši ovaj blok i uključi
+         skriptu kilaza-trening.js na dnu stranice.
     <p class="naslov-sekcije">
       <span class="trening-naslov">
         <svg class="teg-ikona" viewBox="0 0 24 24"><path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -164,6 +168,7 @@
       <textarea id="trening-beleska" placeholder="Beleška — kako si se osećao (opciono)" maxlength="300"></textarea>
       <button id="trening-dodaj" class="glavno-dugme">Sačuvaj trening</button>
     </div>
+    -->
 
     <div class="ukupno-red">
       <span>Ukupno planirano</span>
@@ -232,23 +237,29 @@
     <p class="naslov-sekcije">CILJ VS ODRAĐENO</p>
     <div id="detalj-poredjenje" class="lista"></div>
 
-    <!-- Obroci tog dana + zbir kalorija; ceo blok (sa naslovom) crta
-         renderDetaljObroke, pa se sam sakrije kad obroka nema. -->
+    <!-- DEO 2 (sakriveno): obroci tog dana (renderDetaljObroke iz kilaza-trening.js).
+         Kad je DEO 2 uključen, ovaj div se popuni zbirom kalorija i listom
+         obroka; sada se ne prikazuje.
     <div id="detalj-obroci"></div>
+    -->
   </section>
 
-  <!-- ======================= EKRAN: KILAŽA ======================= -->
-  <!-- Ceo sadržaj (zaglavlje, grafik, statistika, stepper) renderuje
-       renderKilaza u app.js jer je interaktivan (opseg, unos, čuvanje). -->
+  <!-- ═══════════════ EKRAN: KILAŽA — DEO 2 (sakriveno) ═══════════════
+       Ceo sadržaj (zaglavlje, grafik, statistika, stepper, obroci) renderuje
+       renderKilaza iz kilaza-trening.js, koji se ne učitava — pa se ovaj ekran
+       ne prikazuje. Otkomentariši (sa dugmetom u navigaciji i skriptom) da ga vratiš.
   <section id="sekcija-kilaza" hidden>
     <div id="kilaza-sadrzaj"></div>
   </section>
+  ═══════════════ kraj EKRAN: KILAŽA ═══════════════ -->
 
-  <!-- ======================= EKRAN: TRENING (detalj) ======================= -->
-  <!-- Otvara se tapom na trening u Planu; renderuje ga renderTrening. -->
+  <!-- ═══════════════ EKRAN: TRENING (detalj) — DEO 2 (sakriveno) ═══════════════
+       Otvara se tapom na trening u Planu; renderuje ga renderTrening iz
+       kilaza-trening.js, koji se ne učitava. Otkomentariši da ga vratiš.
   <section id="sekcija-trening" hidden>
     <div id="trening-sadrzaj"></div>
   </section>
+  ═══════════════ kraj EKRAN: TRENING ═══════════════ -->
 
 </main>
 
@@ -266,15 +277,25 @@
     <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 10h16M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     Istorija
   </button>
+  <!-- DEO 2 (sakriveno): dugme "Kilaža" u donjoj navigaciji. Otkomentariši ga
+       zajedno sa sekcijama iznad i skriptom ispod da vratiš kilažu/trening/obroke.
   <button class="nav-dugme" data-sekcija="kilaza">
     <svg viewBox="0 0 24 24"><path d="M4 16a8 8 0 0 1 16 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 16l3.5-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3 16h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     Kilaža
   </button>
+  -->
 </nav>
 
 <script src="storage.js"></script>
 <script src="timer.js"></script>
 <script src="app.js"></script>
+<!-- DEO 2 (kilaža + trening + obroci) je izdvojen u kilaza-trening.js i
+     namerno se NE učitava, pa se ti delovi ne prikazuju. Da ih vratiš,
+     otkomentariši sledeću liniju (i HTML blokove označene "DEO 2 (sakriveno)"
+     iznad), i povećaj verziju keša u service-worker.js.
+<script src="kilaza-trening.js"></script>
+-->
+
 <script>
   // Registracija service worker-a za PWA (offline rad + instalacija na telefon).
   // catch: ako se stranica otvori direktno sa diska (file://), SW nije podržan

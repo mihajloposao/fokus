@@ -10,12 +10,43 @@ browsera. Plain HTML + CSS + vanilla JavaScript, bez frameworka i build alata.
 |---------------------|----------|
 | `index.html`        | Sav markup: 4 ekrana (Danas, Plan, Istorija, Detalj dana) + donja navigacija |
 | `style.css`         | Svi stilovi, "Ink + Paper" vizuelni identitet, mobile-first |
-| `app.js`            | Stanje UI-ja, kalkulacije iz sirovih podataka i render funkcije po ekranu |
-| `storage.js`        | Čitanje/pisanje `localStorage`-a — jedini fajl koji zna kako se podaci čuvaju |
+| `app.js`            | **Deo 1 (planovi)** — stanje UI-ja, kalkulacije iz sirovih podataka i render funkcije po ekranu |
+| `kilaza-trening.js` | **Deo 2 (izdvojeno, ne učitava se)** — kilaža, treninzi i obroci; vidi „Dva dela" niže |
+| `storage.js`        | Čitanje/pisanje podataka — jedini fajl koji zna kako se podaci čuvaju |
 | `timer.js`          | Logika tajmera (start/pauza/stop) sa "preživljavanjem" refresh-a |
 | `manifest.json`     | PWA manifest — omogućava "Dodaj na početni ekran" na telefonu |
 | `service-worker.js` | Minimalni keš da aplikacija radi offline |
 | `icon-192.png`, `icon-512.png` | Ikonice aplikacije |
+
+## Dva dela: planovi (aktivno) i kilaža/trening (izdvojeno)
+
+Aplikacija je namerno podeljena na dva dela:
+
+- **Deo 1 — planovi (poenta aplikacije, jedino što se prikazuje).** Danas, Plan
+  (fiksni događaji, stavke sa ciljem, obaveze), Istorija i Detalj dana. Ceo kod
+  je u `app.js` + `index.html`.
+- **Deo 2 — kilaža, treninzi i obroci (izdvojeno, ne prikazuje se).** Sav kod je
+  premešten u `kilaza-trening.js`, koji se **ne učitava** u `index.html`. Zato se
+  ovi delovi ne vide, ali ništa nije obrisano — kod stoji netaknut, a podaci i
+  dalje žive u bazi (Supabase), pa se ne gube.
+
+Kako su spojeni: `app.js` nikad ne poziva Deo 2 direktno, već kroz proveru
+`deo2Aktivan()` (`typeof renderKilaza === "function"`). Dok `kilaza-trening.js`
+nije učitan, ta provera je `false` i svi „kuke" za kilažu/trening/obroke se
+preskaču. Zavisnost ide samo u jednom smeru: Deo 2 sme da koristi funkcije iz
+Dela 1, nikad obrnuto.
+
+**Da ponovo uključiš Deo 2** (ako opet zatrebaju kilaža/trening/obroci):
+
+1. U `index.html` otkomentariši `<script src="kilaza-trening.js"></script>`
+   (stoji odmah ispod `<script src="app.js">`).
+2. U `index.html` otkomentariši HTML blokove označene sa `DEO 2 (sakriveno)`:
+   dugme „Kilaža" u donjoj navigaciji, sekcije `#sekcija-kilaza` i
+   `#sekcija-trening`, TRENING blok na Plan ekranu i `#detalj-obroci`.
+3. Povećaj verziju keša u `service-worker.js` i dodaj `kilaza-trening.js` u
+   listu `FAJLOVI`.
+
+U `app.js` ništa ne treba dirati — kuke se same aktiviraju čim se skripta učita.
 
 ## Kako radi tajmer (najvažniji deo)
 
