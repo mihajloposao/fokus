@@ -29,13 +29,13 @@ with
 -- svi podaci aplikacije (jedan JSON po danima) i kilaža
 podaci as (
   select coalesce(
-    (select value from public.fokus_store where key = 'fokus-data'),
+    (select value from public.fokus_store where key = 'fokus-planovi'),
     '{}'::jsonb
   ) as v
 ),
 kil as (
   select coalesce(
-    (select value from public.fokus_store where key = 'fokus-kilaza'),
+    (select value from public.fokus_store where key = 'kilaza-trening'),
     '{"unosi":{},"cilj":null}'::jsonb
   ) as v
 ),

@@ -13,7 +13,7 @@
  * Struktura podataka (isti oblici kao ranije, sad kao redovi u tabeli
  * fokus_store: key = ime ključa, value = JSON):
  *
- * Ključ "fokus-data" — objekat po danima, ključ je datum "YYYY-MM-DD":
+ * Ključ "fokus-planovi" — objekat po danima, ključ je datum "YYYY-MM-DD":
  *   {
  *     "2026-07-04": {
  *       fixedEvents: [ { naziv, od: "09:00", do: "10:30" } ],
@@ -40,7 +40,7 @@ var SUPABASE_TABELA = SUPABASE_URL + "/rest/v1/fokus_store";
 
 /* ===================== MEMORIJSKI KEŠ + SINHRONIZACIJA ===================== */
 
-var KLJUC_PODACI = "fokus-data";
+var KLJUC_PODACI = "fokus-planovi";
 var KLJUC_TAJMER = "fokus-active-timer";
 
 // Keš drži vrednosti kao JSON stringove — tačno kao što je localStorage radio,

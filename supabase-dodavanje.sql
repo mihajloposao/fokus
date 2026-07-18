@@ -31,10 +31,10 @@
 --   što u njoj išta menjaš. Isti rizik postoji i za dva otvorena uređaja —
 --   nije uveden ovim funkcijama, samo ga vredi znati.
 --
--- REZERVNA KOPIJA pre prvog pokretanja (funkcije prepisuju ceo fokus-data):
+-- REZERVNA KOPIJA pre prvog pokretanja (funkcije prepisuju ceo fokus-planovi):
 --   insert into public.fokus_store (key, value, updated_at)
 --   select 'backup-' || to_char(now(), 'YYYY-MM-DD-HH24MI'), value, now()
---   from public.fokus_store where key = 'fokus-data';
+--   from public.fokus_store where key = 'fokus-planovi';
 --
 -- BEZBEDNOST: funkcije rade sa ISTIM pravima koja anon ključ već ima — app
 -- iz browsera ionako upisuje u fokus_store tim istim ključem, a taj ključ je
@@ -82,10 +82,10 @@ $$;
 
 
 -- -----------------------------------------------------------------------------
--- Pomoćna (srce svega): dodaje stavku u niz unutar jednog dana u "fokus-data".
+-- Pomoćna (srce svega): dodaje stavku u niz unutar jednog dana u "fokus-planovi".
 --
 -- Radi na tri nivoa "možda ne postoji":
---   1) red fokus-data možda ne postoji  -> kreni od {}
+--   1) red fokus-planovi možda ne postoji  -> kreni od {}
 --   2) dan možda ne postoji             -> napravi prazan dan (isti oblik
 --                                          koji pravi ucitajDan u storage.js)
 --   3) niz (obroci/items/...) možda ne postoji -> kreni od []
@@ -101,7 +101,7 @@ declare
   v_podaci jsonb;
   v_dan jsonb;
 begin
-  select value into v_podaci from public.fokus_store where key = 'fokus-data';
+  select value into v_podaci from public.fokus_store where key = 'fokus-planovi';
   v_podaci := coalesce(v_podaci, '{}'::jsonb);
 
   v_dan := coalesce(
@@ -122,7 +122,7 @@ begin
   end if;
 
   insert into public.fokus_store (key, value, updated_at)
-  values ('fokus-data', v_podaci, now())
+  values ('fokus-planovi', v_podaci, now())
   on conflict (key) do update
     set value = excluded.value, updated_at = excluded.updated_at;
 
@@ -204,7 +204,7 @@ begin
   end if;
   v_kg := round(kg, 1); -- app radi na 0,1 kg
 
-  select value into v_kil from public.fokus_store where key = 'fokus-kilaza';
+  select value into v_kil from public.fokus_store where key = 'kilaza-trening';
   v_kil := coalesce(v_kil, '{"unosi":{},"cilj":null}'::jsonb);
   if v_kil -> 'unosi' is null then
     v_kil := jsonb_set(v_kil, '{unosi}', '{}'::jsonb, true);
@@ -213,7 +213,7 @@ begin
   v_kil := jsonb_set(v_kil, array['unosi', v_datum], to_jsonb(v_kg), true);
 
   insert into public.fokus_store (key, value, updated_at)
-  values ('fokus-kilaza', v_kil, now())
+  values ('kilaza-trening', v_kil, now())
   on conflict (key) do update
     set value = excluded.value, updated_at = excluded.updated_at;
 
