@@ -1114,6 +1114,114 @@ input:focus {
   font-variant-numeric: tabular-nums;
 }
 
+/* Buđenje: marker (sunce) na traci — isti raspored kao obaveza, topli ton. */
+.vtraka-budjenje {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  transform: translateY(-50%);
+  z-index: 3;
+}
+
+.vtraka-budjenje .knob {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #d99a2b;
+  color: #fff;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: -10px;
+  box-shadow: 0 0 0 3px var(--paper);
+}
+
+.vtraka-budjenje .rule {
+  flex: 1;
+  border-top: 1.5px dashed #d99a2b;
+  margin: 0 8px;
+  opacity: 0.6;
+}
+
+.vtraka-budjenje .lab {
+  font-size: 11px;
+  font-weight: 600;
+  color: #a9741c;
+  white-space: nowrap;
+  background: var(--paper);
+  padding-left: 6px;
+}
+
+.vtraka-budjenje .lab small {
+  color: var(--ink-blago);
+  font-weight: 500;
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Buđenje: dugme i upisano stanje na Danas ekranu. */
+.budjenje-dugme {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px;
+  margin-bottom: 14px;
+  border: 1.5px solid #e7c98a;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fdf3dc, #fbeccb);
+  color: #9a6a15;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.budjenje-dugme:active {
+  transform: scale(0.99);
+}
+
+.budjenje-ikona {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.budjenje-upisano {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--linija);
+  border-radius: 14px;
+  background: var(--paper-svetlo);
+}
+
+.budjenje-upisano .budjenje-tekst {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.budjenje-upisano .budjenje-tekst strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.budjenje-ponisti {
+  margin-left: auto;
+  padding: 5px 12px;
+  border: 1px solid var(--linija);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-blago);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 /* ===================== OBAVEZE (bez tajmera) ===================== */
 
 /* Kvadratni checkbox obaveze — u listi Danas je dugme, u Planu statični marker */

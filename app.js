@@ -348,9 +348,51 @@ function renderDanas() {
     DANI[d.getDay()].toUpperCase() + " · " + d.getDate() + ". " + MESECI[d.getMonth()].toUpperCase();
   document.getElementById("danas-ukupno").textContent = formatTrajanje(ukupnoMinutaDana(datum, sada));
 
+  renderBudjenje(datum);
   renderTajmerPanel(sada);
   renderVertikalnuTraku(document.getElementById("danas-traka"), datum, sada, true);
   renderListuStavkiDanas(datum, sada);
+}
+
+// Buđenje: jednim tapom upiši kad si se probudio danas. Ako je već upisano,
+// pokazuje vreme i nudi "poništi". Marker se pojavljuje i na dnevnoj traci.
+function renderBudjenje(datum) {
+  var kontejner = document.getElementById("danas-budjenje");
+  var probudioAt = ucitajDan(datum).probudioAt || null;
+
+  if (!probudioAt) {
+    kontejner.innerHTML =
+      '<button class="budjenje-dugme">' +
+        '<span class="budjenje-ikona">☀</span> Probudio sam se' +
+      "</button>";
+    kontejner.querySelector(".budjenje-dugme").addEventListener("click", function () {
+      postaviBudjenje(datum, Date.now());
+      renderDanas();
+    });
+    return;
+  }
+
+  kontejner.innerHTML =
+    '<div class="budjenje-upisano">' +
+      '<span class="budjenje-ikona">☀</span>' +
+      '<span class="budjenje-tekst">Probuđen u <strong>' + formatSatMinut(probudioAt) + "</strong></span>" +
+      '<button class="budjenje-ponisti" title="Poništi">poništi</button>' +
+    "</div>";
+  kontejner.querySelector(".budjenje-ponisti").addEventListener("click", function () {
+    postaviBudjenje(datum, null);
+    renderDanas();
+  });
+}
+
+// Upisuje (ili briše, ts = null) vreme buđenja za dati dan.
+function postaviBudjenje(datum, ts) {
+  var dan = ucitajDan(datum);
+  if (ts === null) {
+    delete dan.probudioAt;
+  } else {
+    dan.probudioAt = ts;
+  }
+  sacuvajDan(datum, dan);
 }
 
 // Kompaktna kartica tajmera (ring + info + dugmad). Prikazuje se samo dok je
@@ -545,6 +587,12 @@ function rasponTrake(datum, sada) {
   for (var j = 0; j < dan.sessions.length; j++) {
     min = Math.min(min, timestampUMinute(dan.sessions[j].start));
     max = Math.max(max, timestampUMinute(dan.sessions[j].end));
+  }
+  // Buđenje (marker na traci) takođe širi raspon.
+  if (dan.probudioAt) {
+    var tb = timestampUMinute(dan.probudioAt);
+    min = Math.min(min, tb);
+    max = Math.max(max, tb);
   }
   var tajmer = ucitajAktivniTajmer();
   if (tajmer !== null && tajmer.datum === datum && tajmer.start !== null) {
@@ -1083,6 +1131,16 @@ function renderVertikalnuTraku(kontejner, datum, sada, zivo) {
 
   // (Čekirane obaveze se namerno NE prikazuju na traci — samo se čekiraju
   //  u listi. Traka prikazuje isključivo mereno vreme i fiksne događaje.)
+
+  // Buđenje: marker sa suncem u trenutku kad se korisnik probudio.
+  if (dan.probudioAt) {
+    html +=
+      '<div class="vtraka-budjenje" style="top:' + vrh(timestampUMinute(dan.probudioAt)) + 'px">' +
+        '<span class="knob">☀</span>' +
+        '<span class="rule"></span>' +
+        '<span class="lab">Probuđen <small>' + formatSatMinut(dan.probudioAt) + "</small></span>" +
+      "</div>";
+  }
 
   if (zivo) {
     var sadaMin = timestampUMinute(sada);
